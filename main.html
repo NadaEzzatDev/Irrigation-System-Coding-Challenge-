@@ -1,0 +1,3796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Irrigation OS :: Mission Control</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* =====================================================
+   WEATHER_OS :: Mission Control Terminal
+   Sci-fi HUD / cyber-ops aesthetic
+   ===================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  /* Core palette — DARK (default) */
+  --bg: #050814;
+  --bg-2: #0a1024;
+  --panel: rgba(10, 20, 40, 0.75);
+  --panel-solid: #0a1024;
+  --border: #1a3a5e;
+
+  /* Neon accents */
+  --cyan: #00f0ff;
+  --cyan-dim: rgba(0, 240, 255, 0.3);
+  --cyan-glow: rgba(0, 240, 255, 0.6);
+  --green: #00ff88;
+  --green-dim: rgba(0, 255, 136, 0.3);
+  --amber: #ffb800;
+  --amber-dim: rgba(255, 184, 0, 0.3);
+  --orange: #ff6b35;
+  --red: #ff2d55;
+  --magenta: #ff2d95;
+  --purple: #a855ff;
+
+  /* Text */
+  --text: #d6e4ff;
+  --text-dim: #6080a8;
+  --text-cyan: var(--cyan);
+  --text-green: var(--green);
+
+  /* Code */
+  --code-bg: #030611;
+  --code-text: #a8f0ff;
+  --code-key: #ff6b9d;
+  --code-str: #00ff88;
+  --code-num: #ffb800;
+  --code-fn: #00f0ff;
+  --code-cmt: #4a5a7a;
+
+  /* Grid overlay */
+  --grid-color: rgba(0,240,255,0.08);
+  --scan-color: rgba(0,240,255,0.02);
+
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --font-display: 'Orbitron', 'JetBrains Mono', sans-serif;
+}
+
+/* LIGHT THEME */
+:root[data-theme="light"] {
+  --bg: #eef2ff;
+  --bg-2: #ffffff;
+  --panel: rgba(255, 255, 255, 0.9);
+  --panel-solid: #ffffff;
+  --border: #c7d2fe;
+
+  --cyan: #0284c7;
+  --cyan-dim: rgba(2, 132, 199, 0.2);
+  --cyan-glow: rgba(2, 132, 199, 0.35);
+  --green: #16a34a;
+  --green-dim: rgba(22, 163, 74, 0.25);
+  --amber: #d97706;
+  --amber-dim: rgba(217, 119, 6, 0.25);
+  --orange: #ea580c;
+  --red: #dc2626;
+  --magenta: #be185d;
+  --purple: #7c3aed;
+
+  --text: #1e293b;
+  --text-dim: #64748b;
+
+  --code-bg: #f1f5f9;
+  --code-text: #0f172a;
+  --code-key: #be185d;
+  --code-str: #16a34a;
+  --code-num: #d97706;
+  --code-fn: #0284c7;
+  --code-cmt: #94a3b8;
+
+  --grid-color: rgba(2, 132, 199, 0.1);
+  --scan-color: rgba(2, 132, 199, 0.015);
+}
+
+html, body {
+  margin: 0; padding: 0;
+  font-family: var(--font-mono);
+  color: var(--text);
+  background: var(--bg);
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-size: 14px;
+}
+
+/* ============== GLOBAL EFFECTS ============== */
+.scanlines {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    var(--scan-color) 0px,
+    var(--scan-color) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  z-index: 9998;
+}
+
+.grid-floor {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 50px 50px;
+  z-index: 0;
+  animation: gridMove 20s linear infinite;
+}
+
+:root[data-theme="light"] .vignette {
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(99, 102, 241, 0.1) 100%);
+}
+@keyframes gridMove {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 50px 50px, 50px 50px; }
+}
+
+.vignette {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 100%);
+  z-index: 9997;
+}
+
+#confettiCanvas {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.hidden { display: none !important; }
+
+/* ============== CORNER BRACKETS (reusable) ============== */
+.corner {
+  position: absolute;
+  width: 18px; height: 18px;
+  border: 2px solid var(--cyan);
+  pointer-events: none;
+}
+.corner.tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+.corner.tr { top: -1px; right: -1px; border-left: none; border-bottom: none; }
+.corner.bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
+.corner.br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+
+/* ============== BUTTONS ============== */
+.btn-cyber {
+  background: linear-gradient(135deg, rgba(0,240,255,0.15), rgba(0,240,255,0.05));
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
+  font-family: var(--font-display);
+  font-weight: 700;
+  padding: 10px 20px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 13px;
+  position: relative;
+  transition: all 0.15s;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+.btn-cyber:hover {
+  background: linear-gradient(135deg, var(--cyan), rgba(0,240,255,0.3));
+  color: var(--bg);
+  box-shadow: 0 0 20px var(--cyan-glow);
+  text-shadow: 0 0 2px rgba(0,0,0,0.5);
+}
+.btn-cyber:active { transform: scale(0.97); }
+.btn-cyber:focus-visible { outline: none; box-shadow: 0 0 25px var(--cyan-glow); }
+.btn-cyber:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.btn-cyber.btn-ghost {
+  background: transparent;
+  border-color: var(--text-dim);
+  color: var(--text-dim);
+}
+.btn-cyber.btn-ghost:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.btn-huge {
+  padding: 18px 40px;
+  font-size: 16px;
+  letter-spacing: 4px;
+}
+.btn-huge .btn-bracket { color: var(--amber); margin: 0 10px; font-weight: 900; }
+
+.sound-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 1px;
+  transition: all 0.15s;
+}
+.sound-toggle:hover { color: var(--cyan); border-color: var(--cyan); }
+
+/* ============== SCREEN / START ============== */
+.screen {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+  padding: 0;
+  background: radial-gradient(ellipse at center, var(--bg-2) 0%, var(--bg) 70%);
+  overflow-y: auto;
+}
+
+.boot-lines {
+  position: absolute;
+  top: 20px; left: 20px;
+  font-family: var(--font-mono);
+  color: var(--green);
+  font-size: 11px;
+  line-height: 1.8;
+  text-shadow: 0 0 4px var(--green-dim);
+  opacity: 0.8;
+}
+.boot-lines .ok { color: var(--amber); }
+
+.hex-frame {
+  position: relative;
+  background: var(--panel-solid);
+  border-top: 1px solid var(--cyan);
+  border-bottom: 1px solid var(--cyan);
+  border-left: none;
+  border-right: none;
+  padding: 28px 10px;
+  max-width: 1600px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(0, 240, 255, 0.15), inset 0 0 40px rgba(0, 240, 255, 0.05);
+}
+.hex-frame .corner { display: none; }
+
+/* ============== START SCREEN PREVIEW ============== */
+.start-preview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 20px 0 24px;
+  text-align: left;
+}
+.preview-left, .preview-right {
+  display: flex; flex-direction: column; gap: 10px;
+  min-width: 0;
+}
+.preview-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.preview-subtle {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
+.preview-circuit {
+  background: #151d20;
+  border: 1px solid var(--border);
+  padding: 4px;
+  min-height: 380px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.preview-circuit svg { width: 100%; height: auto; max-height: 480px; }
+.preview-reset {
+  align-self: center;
+  font-size: 11px;
+  padding: 7px 16px;
+  letter-spacing: 2px;
+}
+.preview-code {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  padding: 14px 18px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-y: auto;
+  max-height: 480px;
+  margin: 0;
+  color: var(--code-text);
+  white-space: pre;
+  text-align: left;
+  flex: 1;
+}
+
+@media (max-width: 900px) {
+  .start-preview { grid-template-columns: 1fr; }
+  .preview-code { max-height: 220px; }
+}
+
+.start-tag {
+  color: var(--amber);
+  font-size: 11px;
+  letter-spacing: 3px;
+  margin-bottom: 20px;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 50% { opacity: 0.5; } }
+
+.start-title {
+  font-family: var(--font-display);
+  line-height: 1.1;
+  margin: 0 0 20px;
+}
+.start-title .title-glitch {
+  display: block;
+  font-size: 48px;
+  font-weight: 900;
+  color: var(--cyan);
+  text-shadow:
+    0 0 10px var(--cyan-glow),
+    2px 0 var(--magenta),
+    -2px 0 var(--green);
+  letter-spacing: 4px;
+  animation: glitch 3s infinite;
+  position: relative;
+}
+.start-title .title-main {
+  display: block;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 6px;
+  margin-top: 4px;
+}
+.start-title .title-sub {
+  display: block;
+  font-size: 11px;
+  color: var(--amber);
+  letter-spacing: 4px;
+  margin-top: 10px;
+  font-family: var(--font-mono);
+}
+@keyframes glitch {
+  0%, 95%, 100% { text-shadow: 0 0 10px var(--cyan-glow), 2px 0 var(--magenta), -2px 0 var(--green); }
+  96% { text-shadow: 0 0 10px var(--cyan-glow), -3px 0 var(--magenta), 3px 0 var(--green); transform: translateX(2px); }
+  97% { text-shadow: 0 0 10px var(--cyan-glow), 4px 0 var(--magenta), -4px 0 var(--green); transform: translateX(-2px); }
+  98% { text-shadow: 0 0 10px var(--cyan-glow), 2px 0 var(--magenta), -2px 0 var(--green); transform: translateX(1px); }
+}
+
+.start-dog-container {
+  position: relative;
+  width: 200px; height: 200px;
+  margin: 20px auto;
+}
+.start-dog { width: 100%; height: 100%; position: relative; z-index: 2; }
+.scanner-ring {
+  position: absolute; inset: -10px;
+  border: 2px dashed var(--cyan);
+  border-radius: 50%;
+  animation: spin 8s linear infinite;
+}
+.scanner-ring::after {
+  content: '';
+  position: absolute; inset: 10px;
+  border: 1px solid var(--cyan-dim);
+  border-radius: 50%;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.briefing {
+  text-align: left;
+  background: rgba(0, 240, 255, 0.03);
+  border-left: 2px solid var(--cyan);
+  padding: 14px 18px;
+  margin: 24px 0;
+}
+.brief-label {
+  color: var(--cyan);
+  font-size: 11px;
+  letter-spacing: 3px;
+  margin-bottom: 8px;
+}
+.brief-text { color: var(--text); font-size: 13px; line-height: 1.6; margin: 0; }
+.brief-text strong { color: var(--amber); font-weight: 700; }
+.brief-highlight { color: var(--green); font-weight: 700; }
+
+.start-stats {
+  display: grid; gap: 6px;
+  margin: 20px 0;
+  text-align: left;
+}
+.stat-row {
+  display: flex; justify-content: space-between;
+  font-size: 11px;
+  padding: 6px 10px;
+  border-bottom: 1px dashed var(--border);
+}
+.stat-row span:first-child { color: var(--text-dim); letter-spacing: 2px; }
+.stat-row .val { color: var(--green); font-weight: 700; letter-spacing: 1px; }
+
+.start-sound { margin-top: 20px; }
+
+/* ============== APP ============== */
+#app {
+  padding: 0 16px 16px;
+  max-width: 1500px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+/* HUD HEADER */
+.hud-header {
+  display: flex; align-items: stretch; gap: 14px;
+  padding: 10px 16px;
+  margin: 12px 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  position: relative;
+  backdrop-filter: blur(10px);
+  clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 100%, 20px 100%);
+}
+.hud-section { display: flex; flex-direction: column; justify-content: center; }
+.hud-left { flex: 1; }
+.hud-center { flex: 2; align-items: center; }
+.hud-right { flex: 1; align-items: flex-end; flex-direction: row; gap: 10px; justify-content: flex-end; }
+
+.hud-logo {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 18px;
+  color: var(--cyan);
+  letter-spacing: 3px;
+  text-shadow: 0 0 10px var(--cyan-glow);
+}
+.logo-dim { color: var(--text-dim); font-weight: 400; }
+.logo-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  background: var(--green);
+  margin-right: 8px;
+  animation: blink 1.5s infinite;
+  box-shadow: 0 0 10px var(--green);
+}
+@keyframes blink { 50% { opacity: 0.3; } }
+
+.hud-status {
+  font-size: 10px;
+  color: var(--green);
+  letter-spacing: 2px;
+  margin-top: 4px;
+}
+.dot-online {
+  display: inline-block; width: 6px; height: 6px;
+  background: var(--green); border-radius: 50%;
+  box-shadow: 0 0 6px var(--green);
+  margin-right: 4px;
+}
+
+.hud-mission-label { text-align: center; margin-bottom: 6px; }
+.hud-tag {
+  display: block;
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+}
+.hud-mission {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--amber);
+  letter-spacing: 3px;
+  text-shadow: 0 0 6px var(--amber-dim);
+}
+
+.progress-wrap { width: 100%; }
+.progress-segments {
+  display: grid;
+  grid-template-columns: repeat(15, 1fr);
+  gap: 3px;
+  height: 10px;
+}
+.progress-segment {
+  background: rgba(0,240,255,0.08);
+  border: 1px solid rgba(0,240,255,0.2);
+  transition: all 0.4s;
+}
+.progress-segment.done {
+  background: var(--cyan);
+  border-color: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan-glow);
+}
+.progress-segment.current {
+  background: var(--amber);
+  border-color: var(--amber);
+  animation: segmentPulse 1.5s infinite;
+}
+@keyframes segmentPulse { 50% { opacity: 0.5; } }
+
+.xp-chip {
+  display: flex; align-items: center; gap: 6px;
+  background: linear-gradient(135deg, rgba(255,184,0,0.15), transparent);
+  border: 1px solid var(--amber);
+  padding: 6px 12px;
+  color: var(--amber);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 2px;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%);
+  text-shadow: 0 0 6px var(--amber-dim);
+}
+.xp-icon { font-size: 14px; }
+.xp-label { color: var(--text-dim); font-size: 10px; }
+.xp-chip.pop { animation: xpPop 0.5s; }
+@keyframes xpPop {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); color: var(--green); border-color: var(--green); }
+}
+
+/* ============== GRID ============== */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 1.2fr;
+  gap: 14px;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 16px;
+  position: relative;
+  backdrop-filter: blur(10px);
+  display: flex; flex-direction: column;
+  min-height: 480px;
+  max-height: calc(100vh - 180px);
+}
+.panel-sim-strip {
+  display: none;
+  margin-top: 14px;
+  min-height: 0;
+  max-height: none;
+}
+.panel-sim-strip.visible { display: flex; flex-direction: column; }
+.sim-strip-grid {
+  display: grid;
+  grid-template-columns: 180px 1.5fr 1.4fr 1.4fr;
+  gap: 16px;
+  align-items: stretch;
+}
+.sim-strip-grid-v2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.4fr;
+  gap: 16px;
+  align-items: stretch;
+}
+.sim-ctrl {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+}
+.sim-reading {
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 900;
+  color: var(--amber);
+  text-shadow: 0 0 15px var(--amber-dim);
+  margin: 6px 0;
+  line-height: 1;
+}
+.sim-reading-unit { font-size: 20px; color: var(--text-dim); margin-left: 6px; }
+
+/* Horizontal thermometer bar */
+.thermo-horiz {
+  height: 8px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  margin-top: 10px;
+  position: relative;
+  overflow: hidden;
+}
+.thermo-horiz-fill {
+  height: 100%;
+  width: 48%;
+  background: linear-gradient(90deg, var(--cyan), var(--green), var(--amber), var(--red));
+  transition: height 0.4s;
+  box-shadow: 0 0 10px rgba(255,184,0,0.4);
+}
+
+/* Humidity bar */
+.hum-bar {
+  height: 8px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  margin-top: 10px;
+  position: relative;
+  overflow: hidden;
+}
+.hum-bar-fill {
+  height: 100%;
+  width: 55%;
+  background: linear-gradient(90deg, #fbbf24, #38bdf8, #0369a1);
+  transition: width 0.4s;
+  box-shadow: 0 0 10px rgba(56,189,248,0.4);
+}
+
+/* Virtual LCD */
+.sim-lcd {
+  display: flex; flex-direction: column; justify-content: center;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+}
+.virtual-lcd {
+  display: flex; flex-direction: column; align-items: center;
+}
+.lcd-bezel {
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border: 3px solid #475569;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.6), 0 4px 10px rgba(0,0,0,0.4);
+}
+.lcd-screen {
+  background: #1e3a8a;
+  background-image:
+    linear-gradient(0deg, rgba(255,255,255,0.05) 0, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 10px),
+    linear-gradient(90deg, rgba(255,255,255,0.05) 0, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 15px);
+  padding: 12px 14px;
+  border-radius: 2px;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
+}
+.lcd-line {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  color: #e0f2fe;
+  text-shadow: 0 0 6px rgba(147, 197, 253, 0.8), 0 0 3px rgba(255,255,255,0.5);
+  letter-spacing: 2px;
+  white-space: pre;
+  line-height: 1.3;
+  font-weight: 700;
+}
+.lcd-caption {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 8px;
+  letter-spacing: 2px;
+}
+
+/* Humidity slider gradient */
+#humSlider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: linear-gradient(90deg, #fbbf24, #38bdf8, #0369a1);
+  outline: none;
+}
+#humSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--cyan);
+  border: 2px solid var(--bg);
+  cursor: pointer;
+  box-shadow: 0 0 10px var(--cyan), 0 0 20px var(--cyan-dim);
+  transform: rotate(45deg);
+}
+#humSlider::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--cyan);
+  border: 2px solid var(--bg);
+  cursor: pointer;
+  transform: rotate(45deg);
+}
+
+/* Test rows with partial state */
+.test-row.partial {
+  border-left-color: var(--amber);
+  background: linear-gradient(90deg, rgba(255,184,0,0.08), transparent);
+}
+.test-row.partial .test-status { color: var(--amber); }
+.test-and { color: var(--cyan); margin: 0 4px; }
+
+/* Robot LCD text in SVG — light theme */
+:root[data-theme="light"] #botLcdLine1,
+:root[data-theme="light"] #botLcdLine2 { fill: #93c5fd; }
+.sim-cell {
+  display: flex; flex-direction: column;
+  justify-content: center;
+}
+.cell-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+.sim-temp {
+  flex-direction: row;
+  gap: 12px;
+  align-items: center;
+}
+.sim-leds .leds { margin-bottom: 0; }
+.sim-serial .serial { min-height: 110px; }
+.panel:hover .corner { border-color: var(--amber); transition: border-color 0.3s; }
+
+.panel-head {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--cyan);
+  letter-spacing: 2px;
+  display: flex; align-items: center;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+  text-transform: uppercase;
+}
+.head-icon { color: var(--amber); font-size: 10px; }
+.head-status {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--green);
+  letter-spacing: 1px;
+}
+.hint-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--amber);
+  color: var(--amber);
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  transition: all 0.15s;
+}
+.hint-btn:hover {
+  background: var(--amber);
+  color: var(--bg);
+  box-shadow: 0 0 10px var(--amber-dim);
+}
+
+/* ============== BUDDY PANEL ============== */
+.buddy-stage {
+  position: relative;
+  flex: 1;
+  background: #0a1024;
+  border: 1px dashed var(--border);
+  min-height: 240px;
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.stage-grid { display: none; }
+.stage-corners span {
+  position: absolute;
+  width: 12px; height: 12px;
+  border: 1px solid var(--cyan);
+}
+.stage-corners span:nth-child(1) { top: 4px; left: 4px; border-right: none; border-bottom: none; }
+.stage-corners span:nth-child(2) { top: 4px; right: 4px; border-left: none; border-bottom: none; }
+.stage-corners span:nth-child(3) { bottom: 4px; left: 4px; border-right: none; border-top: none; }
+.stage-corners span:nth-child(4) { bottom: 4px; right: 4px; border-left: none; border-top: none; }
+
+.buddy-wrap {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  z-index: 2;
+  padding: 4px;
+}
+.buddy-wrap svg { width: 100%; height: 100%; max-height: 100%; }
+.circuit-svg {
+  background: #151d20;
+  background-image: radial-gradient(#243035 1px, transparent 1.1px);
+  background-size: 18px 18px;
+  border-radius: 6px;
+  padding: 2px;
+}
+:root[data-theme="light"] .circuit-svg {
+  background: #f7faf6;
+  background-image: radial-gradient(#d3ddd3 1px, transparent 1.1px);
+  background-size: 18px 18px;
+}
+
+/* Circuit wire layers (match reference project) */
+.circuit-svg .case {
+  fill: none;
+  stroke: #cfd8d3;
+  stroke-width: 8.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+:root[data-theme="light"] .circuit-svg .case { stroke: #ffffff; }
+
+.circuit-svg .wire {
+  fill: none;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.circuit-svg .flow {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2;
+  stroke-dasharray: 4 10;
+  stroke-linecap: round;
+  animation: wire-flow 0.6s linear infinite;
+  opacity: 0.95;
+  pointer-events: none;
+}
+@keyframes wire-flow {
+  to { stroke-dashoffset: -14; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .circuit-svg .flow { animation: none; }
+}
+/* Keep the circuit panel opaque so the animated page grid doesn't scroll behind it */
+.panel-buddy { background: var(--panel-solid); }
+:root[data-theme="light"] .panel-buddy { background: #ffffff; }
+.buddy-particles { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+
+.buddy-readout {
+  margin-top: 14px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.readout-row {
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(0,0,0,0.4);
+  border-left: 2px solid var(--cyan);
+  padding: 8px 12px;
+  font-size: 11px;
+}
+.readout-label { color: var(--text-dim); letter-spacing: 2px; }
+.readout-value {
+  color: var(--green);
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-shadow: 0 0 4px var(--green-dim);
+  text-align: right;
+  max-width: 60%;
+}
+
+/* Dog state colors */
+.readout-value.state-waiting { color: var(--amber); text-shadow: 0 0 4px var(--amber-dim); }
+.readout-value.state-cold { color: #60c0ff; text-shadow: 0 0 4px rgba(96,192,255,0.5); }
+.readout-value.state-hot { color: var(--orange); text-shadow: 0 0 4px rgba(255,107,53,0.5); }
+.readout-value.state-ok { color: var(--green); }
+.readout-value.state-bad { color: var(--red); text-shadow: 0 0 4px rgba(255,45,85,0.5); }
+.readout-value.state-celebrate { color: var(--magenta); text-shadow: 0 0 4px rgba(255,45,149,0.5); }
+
+/* Dog animations */
+.dog-shiver { animation: shiver 0.15s infinite; }
+.dog-pant   { animation: pant 0.5s infinite; }
+.dog-happy  { animation: happy 1.5s infinite; }
+.dog-celebrate { animation: celebrate 0.6s infinite; }
+.dog-confused { animation: confused 2s infinite; }
+
+@keyframes shiver {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+@keyframes pant {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+@keyframes happy {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  50% { transform: translateY(-8px) rotate(-2deg); }
+}
+@keyframes celebrate {
+  0% { transform: translateY(0) rotate(0); }
+  25% { transform: translateY(-20px) rotate(-8deg); }
+  50% { transform: translateY(0); }
+  75% { transform: translateY(-20px) rotate(8deg); }
+  100% { transform: translateY(0); }
+}
+@keyframes confused {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-6deg); }
+  75% { transform: rotate(6deg); }
+}
+
+.snow {
+  position: absolute;
+  color: #93c5fd;
+  font-size: 16px;
+  animation: fall 2.5s linear infinite;
+  text-shadow: 0 0 4px rgba(147,197,253,0.6);
+}
+@keyframes fall {
+  0% { transform: translateY(-30px); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translateY(260px) rotate(360deg); opacity: 0; }
+}
+.heat {
+  position: absolute;
+  width: 20px; height: 20px;
+  background: radial-gradient(circle, rgba(255,107,53,0.6), transparent);
+  border-radius: 50%;
+  animation: rise 2s linear infinite;
+}
+@keyframes rise {
+  0% { transform: translateY(260px) scale(1); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translateY(-40px) scale(1.6); opacity: 0; }
+}
+
+/* ============== MISSION BODY ============== */
+.mission-body {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.mission-body::-webkit-scrollbar { width: 6px; }
+.mission-body::-webkit-scrollbar-track { background: var(--bg-2); }
+.mission-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+.mission-story {
+  background: linear-gradient(135deg, rgba(0,240,255,0.08), transparent);
+  border-left: 2px solid var(--cyan);
+  padding: 12px 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+.mission-story strong { color: var(--amber); font-weight: 700; }
+.mission-story em { color: var(--magenta); font-style: normal; }
+.mission-story code {
+  background: var(--code-bg);
+  color: var(--cyan);
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--border);
+}
+.mission-prompt {
+  font-weight: 700;
+  color: var(--cyan);
+  margin: 14px 0;
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+.mission-prompt strong { color: var(--amber); }
+
+/* Code boxes */
+.code-box {
+  background: var(--code-bg);
+  color: var(--code-text);
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-x: auto;
+  white-space: pre;
+  margin: 12px 0;
+  position: relative;
+}
+.code-box::before {
+  content: '// FIRMWARE.ino';
+  position: absolute;
+  top: -1px; right: 0;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-top: none;
+  padding: 2px 10px;
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+}
+.code-box .kw { color: var(--code-key); font-weight: 700; }
+.code-box .str { color: var(--code-str); }
+.code-box .num { color: var(--code-num); }
+.code-box .fn { color: var(--code-fn); }
+.code-box .cmt { color: var(--code-cmt); font-style: italic; }
+
+.code-blank {
+  display: inline-block;
+  min-width: 70px;
+  padding: 2px 8px;
+  background: rgba(255,184,0,0.1);
+  color: var(--amber);
+  border: 1px dashed var(--amber);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  text-align: center;
+  outline: none;
+}
+.code-blank:focus { background: rgba(0,240,255,0.1); border-color: var(--cyan); color: var(--cyan); box-shadow: 0 0 10px var(--cyan-dim); }
+.code-blank.correct {
+  background: rgba(0,255,136,0.15);
+  border: 1px solid var(--green);
+  color: var(--green);
+  box-shadow: 0 0 6px var(--green-dim);
+}
+.code-blank.wrong {
+  background: rgba(255,45,85,0.15);
+  border: 1px solid var(--red);
+  color: var(--red);
+  animation: shake 0.4s;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* MCQ options */
+.options {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+.option {
+  background: linear-gradient(90deg, rgba(0,240,255,0.05), transparent);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 12px 16px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  position: relative;
+  transition: all 0.15s;
+  letter-spacing: 1px;
+}
+.option::before {
+  content: '> ';
+  color: var(--text-dim);
+  margin-right: 8px;
+  transition: color 0.15s;
+}
+.option:hover {
+  background: linear-gradient(90deg, rgba(0,240,255,0.1), transparent);
+  border-color: var(--cyan);
+  color: var(--cyan);
+  padding-left: 24px;
+}
+.option:hover::before { color: var(--cyan); }
+.option.selected {
+  background: linear-gradient(90deg, rgba(0,240,255,0.15), transparent);
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: inset 3px 0 0 var(--cyan);
+}
+.option.selected::before { color: var(--cyan); content: '▶ '; }
+.option.correct {
+  background: linear-gradient(90deg, rgba(0,255,136,0.15), transparent);
+  border-color: var(--green);
+  color: var(--green);
+  box-shadow: inset 3px 0 0 var(--green), 0 0 15px rgba(0,255,136,0.2);
+}
+.option.correct::before { content: '✓ '; color: var(--green); }
+.option.wrong {
+  background: linear-gradient(90deg, rgba(255,45,85,0.15), transparent);
+  border-color: var(--red);
+  color: var(--red);
+  box-shadow: inset 3px 0 0 var(--red);
+}
+.option.wrong::before { content: '✗ '; color: var(--red); }
+
+/* Explain box */
+.explain-box {
+  background: rgba(168,85,255,0.08);
+  border: 1px solid var(--purple);
+  border-left-width: 3px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #c9b5ff;
+  margin-top: 10px;
+  position: relative;
+}
+.explain-box::before {
+  content: '// INTEL';
+  position: absolute;
+  top: -1px; right: 0;
+  background: var(--bg-2);
+  border: 1px solid var(--purple);
+  border-right: none;
+  border-top: none;
+  padding: 1px 8px;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--purple);
+}
+.explain-box code { color: var(--cyan); background: rgba(0,240,255,0.1); padding: 1px 5px; }
+
+/* Full code editor */
+.code-editor {
+  width: 100%;
+  min-height: 300px;
+  background: var(--code-bg);
+  color: var(--code-text);
+  border: 1px solid var(--cyan);
+  padding: 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+  resize: vertical;
+  tab-size: 2;
+  outline: none;
+}
+.code-editor:focus { box-shadow: 0 0 20px var(--cyan-dim); }
+
+.toolbox {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  margin: 10px 0;
+  background: rgba(0,0,0,0.4);
+  padding: 10px;
+  border: 1px dashed var(--border);
+}
+.tool-chip {
+  background: rgba(0,240,255,0.05);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--cyan);
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: all 0.15s;
+}
+.tool-chip:hover {
+  background: var(--cyan);
+  color: var(--bg);
+  box-shadow: 0 0 10px var(--cyan-dim);
+}
+
+/* Validator */
+.validator-list {
+  margin-top: 10px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.v-item {
+  padding: 6px 12px;
+  font-size: 11px;
+  display: flex; align-items: center; gap: 10px;
+  letter-spacing: 1px;
+  border-left: 2px solid;
+  background: rgba(0,0,0,0.3);
+}
+.v-pass { color: var(--green); border-color: var(--green); }
+.v-fail { color: var(--red); border-color: var(--red); }
+
+/* Mission footer */
+.mission-footer {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.feedback {
+  flex: 1;
+  text-align: center;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  min-height: 20px;
+  transition: all 0.3s;
+}
+.feedback.success { color: var(--green); text-shadow: 0 0 6px var(--green-dim); }
+.feedback.error { color: var(--red); text-shadow: 0 0 6px rgba(255,45,85,0.5); }
+.feedback.pop { animation: fbPop 0.5s; }
+@keyframes fbPop {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ============== SIMULATOR PANEL ============== */
+.thermo-wrap {
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 14px;
+  padding: 10px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
+}
+.thermo {
+  width: 32px; height: 140px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.thermo-tube {
+  width: 14px; height: 110px;
+  background: rgba(0,240,255,0.05);
+  border-radius: 8px 8px 0 0;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--cyan);
+}
+.thermo-marks {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent 0, transparent 9px, rgba(0,240,255,0.3) 9px, rgba(0,240,255,0.3) 10px);
+  z-index: 1;
+}
+.thermo-fill {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(0deg, #ff2d55, var(--orange), var(--amber), var(--green), var(--cyan));
+  height: 50%;
+  transition: height 0.4s;
+  box-shadow: 0 0 10px rgba(255,184,0,0.5);
+}
+.thermo-bulb {
+  width: 26px; height: 26px;
+  background: radial-gradient(circle at 30% 30%, var(--orange), var(--red));
+  border-radius: 50%;
+  margin-top: -4px;
+  border: 1px solid var(--cyan);
+  box-shadow: 0 0 15px rgba(255,45,85,0.6);
+}
+.temp-display { flex: 1; }
+.temp-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+}
+.temp-value {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 44px;
+  color: var(--amber);
+  line-height: 1;
+  text-shadow: 0 0 15px var(--amber-dim);
+  margin: 4px 0;
+}
+.temp-unit { font-size: 24px; color: var(--text-dim); margin-left: 4px; }
+.temp-sub { font-size: 10px; color: var(--text-dim); letter-spacing: 2px; }
+
+.slider-wrap {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 4px;
+}
+.step-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--cyan);
+  padding: 4px 12px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  transition: all 0.15s;
+}
+.step-btn:hover { border-color: var(--cyan); background: rgba(0,240,255,0.1); box-shadow: 0 0 8px var(--cyan-dim); }
+#tempSlider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: linear-gradient(90deg, var(--cyan), var(--green), var(--amber), var(--red));
+  outline: none;
+}
+#tempSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--amber);
+  border: 2px solid var(--bg);
+  cursor: pointer;
+  box-shadow: 0 0 10px var(--amber), 0 0 20px var(--amber-dim);
+  transform: rotate(45deg);
+}
+#tempSlider::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--amber);
+  border: 2px solid var(--bg);
+  cursor: pointer;
+  transform: rotate(45deg);
+}
+.slider-labels {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--text-dim);
+  letter-spacing: 2px;
+  margin: 4px 10px 14px;
+}
+
+/* LEDs */
+.leds {
+  display: flex; gap: 10px;
+  margin-bottom: 14px;
+}
+.led-item {
+  flex: 1;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--border);
+  padding: 10px;
+  display: flex; align-items: center; gap: 10px;
+}
+.led-ring {
+  width: 50px; height: 50px;
+  border: 1px dashed var(--border);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.led {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: #1a2a44;
+  transition: all 0.3s;
+  box-shadow: inset 0 0 8px rgba(0,0,0,0.5);
+}
+.led-hot.on {
+  background: radial-gradient(circle at 30% 30%, #ff8ba3, var(--red));
+  box-shadow: 0 0 25px var(--red), 0 0 50px rgba(255,45,85,0.5), inset 0 0 10px rgba(255,255,255,0.3);
+  animation: ledPulse 1s infinite;
+}
+.led-cold.on {
+  background: radial-gradient(circle at 30% 30%, #93c5fd, #3b82f6);
+  box-shadow: 0 0 25px #3b82f6, 0 0 50px rgba(59,130,246,0.5), inset 0 0 10px rgba(255,255,255,0.3);
+  animation: ledPulse 1s infinite;
+}
+@keyframes ledPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.3); }
+}
+.led-info { flex: 1; }
+.led-label { font-size: 11px; font-weight: 700; color: var(--text); letter-spacing: 1px; }
+.led-pin { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+.led-state {
+  font-size: 10px; font-weight: 700;
+  margin-top: 4px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+}
+.led-state.on-text { color: var(--green); text-shadow: 0 0 4px var(--green-dim); }
+
+/* Serial */
+.serial {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  flex: 1;
+  min-height: 160px;
+  display: flex; flex-direction: column;
+}
+.serial-head {
+  background: rgba(0,0,0,0.6);
+  color: var(--text-dim);
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.serial-dot {
+  width: 6px; height: 6px;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: blink 1.4s infinite;
+}
+.serial-baud { margin-left: auto; color: var(--amber); }
+.serial-body {
+  flex: 1;
+  padding: 8px 10px;
+  color: var(--green);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.7;
+  overflow-y: auto;
+  max-height: 180px;
+}
+.serial-dim { color: var(--text-dim); }
+.serial-line { margin: 1px 0; }
+
+/* ============== BADGES BAR ============== */
+.badges-bar {
+  margin-top: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex; align-items: center; gap: 14px;
+  font-size: 11px;
+}
+.badges-label { color: var(--text-dim); letter-spacing: 2px; }
+.badges-list { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
+.badges-empty { color: var(--text-dim); font-style: italic; opacity: 0.5; }
+.badge-chip {
+  background: linear-gradient(90deg, rgba(255,184,0,0.2), transparent);
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  padding: 4px 10px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: 700;
+  text-shadow: 0 0 4px var(--amber-dim);
+  animation: badgePop 0.6s;
+}
+@keyframes badgePop {
+  0% { transform: scale(0) rotate(-180deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+/* ============== POPUPS ============== */
+.popup {
+  position: fixed; inset: 0;
+  background: rgba(5, 8, 20, 0.85);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.popup-card {
+  position: relative;
+  background: var(--panel-solid);
+  border: 1px solid var(--cyan);
+  padding: 30px 36px;
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 0 60px var(--cyan-glow);
+  animation: popIn 0.3s;
+  clip-path: polygon(0 15px, 15px 0, calc(100% - 15px) 0, 100% 15px, 100% calc(100% - 15px), calc(100% - 15px) 100%, 15px 100%, 0 calc(100% - 15px));
+}
+.popup-card .corner { width: 20px; height: 20px; }
+@keyframes popIn {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.popup-tag {
+  color: var(--amber);
+  font-size: 10px;
+  letter-spacing: 3px;
+  margin-bottom: 12px;
+}
+.popup-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: 3px;
+  margin-bottom: 12px;
+  text-shadow: 0 0 10px var(--cyan-glow);
+}
+.popup-body {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 20px;
+  letter-spacing: 1px;
+}
+.popup-body code { background: var(--code-bg); color: var(--cyan); padding: 1px 6px; border: 1px solid var(--border); }
+
+.badge-popup { padding: 36px; }
+.badge-huge {
+  font-size: 80px;
+  color: var(--amber);
+  margin-bottom: 12px;
+  text-shadow: 0 0 30px var(--amber);
+  animation: badgeSpin 1s ease;
+}
+@keyframes badgeSpin {
+  0% { transform: rotate(-360deg) scale(0); }
+  100% { transform: rotate(0) scale(1); }
+}
+
+/* ============== FINAL SCREEN ============== */
+#finalScreen {
+  background: radial-gradient(ellipse at center, rgba(255,184,0,0.1) 0%, var(--bg) 70%);
+}
+.final-frame {
+  max-width: 760px;
+  border-color: var(--amber);
+  box-shadow: 0 0 80px rgba(255,184,0,0.3), inset 0 0 60px rgba(255,184,0,0.05);
+}
+.final-frame .corner { border-color: var(--amber); }
+.final-tag { color: var(--green); font-size: 11px; letter-spacing: 4px; margin-bottom: 16px; }
+.final-title { margin: 0 0 20px; }
+.final-title .title-glitch {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 900;
+  color: var(--amber);
+  text-shadow:
+    0 0 15px var(--amber),
+    2px 0 var(--magenta),
+    -2px 0 var(--cyan);
+  letter-spacing: 6px;
+  animation: glitch 3s infinite;
+}
+.final-dog {
+  width: 180px; height: 180px;
+  margin: 10px auto;
+  filter: drop-shadow(0 0 30px var(--amber-dim));
+}
+.final-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 24px 0;
+}
+.stat {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--border);
+  padding: 12px 8px;
+  text-align: center;
+}
+.stat-tag { font-size: 9px; color: var(--text-dim); letter-spacing: 2px; margin-bottom: 6px; }
+.stat-num {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--cyan);
+  text-shadow: 0 0 8px var(--cyan-dim);
+}
+.final-rank {
+  background: linear-gradient(90deg, transparent, rgba(255,184,0,0.15), transparent);
+  border-top: 1px solid var(--amber);
+  border-bottom: 1px solid var(--amber);
+  padding: 16px;
+  margin: 20px 0;
+}
+.rank-label { font-size: 10px; color: var(--text-dim); letter-spacing: 3px; margin-bottom: 6px; }
+.rank-name {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--amber);
+  letter-spacing: 4px;
+  text-shadow: 0 0 15px var(--amber);
+}
+.final-msg {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 20px 0;
+  letter-spacing: 1px;
+}
+.final-msg .hl { color: var(--green); font-weight: 700; }
+
+/* ============== MCQ GROUP ============== */
+.mcq-block {
+  margin: 14px 0;
+  padding: 12px 14px;
+  background: rgba(0,0,0,0.3);
+  border-left: 2px solid var(--cyan);
+  position: relative;
+}
+.mcq-label {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.mcq-tag {
+  display: inline-block;
+  background: var(--cyan);
+  color: var(--bg);
+  padding: 2px 8px;
+  font-weight: 900;
+  font-size: 11px;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+  font-family: var(--font-display);
+}
+.mcq-prompt { flex: 1; }
+.mcq-prompt code {
+  background: var(--code-bg);
+  color: var(--amber);
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+.options-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 6px;
+  align-items: stretch;
+}
+.options-row .option {
+  text-align: center;
+  padding: 10px 12px;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
+  line-height: 1.35;
+  hyphens: auto;
+}
+.options-row .option::before { content: ''; margin: 0; }
+.options-row .option:hover { padding-left: 12px; }
+.options-row .option.selected::before { content: ''; }
+.options-row .option.correct::before { content: '✓ '; margin-right: 4px; }
+.options-row .option.wrong::before { content: '✗ '; margin-right: 4px; }
+
+/* Regular MCQ (full-column) options too */
+.option {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  line-height: 1.4;
+}
+
+.code-buggy {
+  border-color: var(--red);
+  box-shadow: 0 0 10px rgba(255, 45, 85, 0.2);
+}
+.code-buggy::before {
+  content: '// 🐞 BUGGY_FIRMWARE.ino';
+  color: var(--red);
+}
+
+/* ============== FIRMWARE BUTTON + VIEWER ============== */
+.firmware-btn {
+  background: linear-gradient(135deg, rgba(0,255,136,0.15), transparent);
+  border: 1px solid var(--green);
+  color: var(--green);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 1px;
+  transition: all 0.15s;
+  text-shadow: 0 0 4px var(--green-dim);
+}
+.firmware-btn:hover {
+  background: var(--green);
+  color: var(--bg);
+  text-shadow: none;
+  box-shadow: 0 0 15px var(--green-dim);
+}
+
+.firmware-popup {
+  max-width: 720px;
+  padding: 28px 32px;
+}
+.firmware-meta {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  margin-bottom: 12px;
+}
+.fw-badge {
+  background: rgba(0,255,136,0.15);
+  color: var(--green);
+  border: 1px solid var(--green);
+  padding: 4px 10px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+.firmware-code {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  padding: 14px 18px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+  max-height: 420px;
+  overflow-y: auto;
+  text-align: left;
+  margin: 10px 0;
+  white-space: pre-wrap;
+}
+.firmware-code-inline {
+  flex: 1;
+  margin: 0 0 10px;
+  max-height: none;
+  min-height: 0;
+  overflow-y: auto;
+}
+.panel-mission .mission-body {
+  min-height: 0;
+  overflow-y: auto;
+}
+.panel-code .fw-badge {
+  margin-left: auto;
+  font-size: 10px;
+}
+.fw-line { display: block; }
+.fw-unlocked { color: var(--code-text); animation: fwUnlock 0.5s; }
+.fw-locked {
+  color: var(--text-dim);
+  opacity: 0.4;
+  font-style: italic;
+  display: block;
+}
+@keyframes fwUnlock {
+  0% { background: rgba(0,255,136,0.3); }
+  100% { background: transparent; }
+}
+.firmware-legend {
+  display: flex; justify-content: center; gap: 20px;
+  font-size: 10px; color: var(--text-dim);
+  letter-spacing: 2px;
+  margin: 10px 0 16px;
+}
+.legend-dot {
+  display: inline-block; width: 8px; height: 8px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.legend-dot.ok { background: var(--green); box-shadow: 0 0 4px var(--green); }
+.legend-dot.locked { background: var(--text-dim); opacity: 0.5; }
+
+/* ============== MANUAL TEST (MISSION 15) ============== */
+.manual-test-list {
+  margin: 14px 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.test-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(0,0,0,0.3);
+  border-left: 2px solid var(--border);
+  transition: all 0.25s;
+}
+.test-row.passed {
+  border-left-color: var(--green);
+  background: linear-gradient(90deg, rgba(0,255,136,0.1), transparent);
+  box-shadow: inset 0 0 10px rgba(0,255,136,0.1);
+}
+.test-row.failing {
+  border-left-color: var(--red);
+  background: linear-gradient(90deg, rgba(255,45,85,0.1), transparent);
+}
+.test-num {
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--cyan);
+  font-weight: 900;
+  text-shadow: 0 0 6px var(--cyan-dim);
+}
+.test-info { display: flex; flex-direction: column; }
+.test-temp {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--amber);
+  letter-spacing: 2px;
+}
+.test-exp { font-size: 11px; color: var(--text-dim); letter-spacing: 1px; }
+.test-exp strong { color: var(--text); }
+.test-status {
+  font-size: 11px;
+  letter-spacing: 2px;
+  font-weight: 700;
+  color: var(--text-dim);
+  min-width: 100px;
+  text-align: right;
+}
+.test-row.passed .test-status { color: var(--green); text-shadow: 0 0 4px var(--green-dim); }
+.test-row.failing .test-status { color: var(--red); }
+.test-go {
+  font-size: 11px;
+  padding: 6px 14px;
+  letter-spacing: 1px;
+}
+
+.strip-attention {
+  box-shadow: 0 0 30px var(--amber-dim), inset 0 0 20px rgba(255,184,0,0.05);
+  border-color: var(--amber);
+  animation: stripPulse 2s infinite;
+}
+@keyframes stripPulse {
+  0%, 100% { box-shadow: 0 0 30px var(--amber-dim), inset 0 0 20px rgba(255,184,0,0.05); }
+  50% { box-shadow: 0 0 50px var(--amber-dim), inset 0 0 30px rgba(255,184,0,0.1); }
+}
+.strip-attention .corner { border-color: var(--amber); }
+
+/* ============== LIGHT-THEME TWEAKS ============== */
+:root[data-theme="light"] html,
+:root[data-theme="light"] body {
+  background: linear-gradient(180deg, #eef2ff, #f8fafc);
+}
+:root[data-theme="light"] .panel {
+  box-shadow: 0 4px 20px rgba(2, 132, 199, 0.08);
+}
+:root[data-theme="light"] .code-box,
+:root[data-theme="light"] .firmware-code,
+:root[data-theme="light"] .serial,
+:root[data-theme="light"] .serial-body {
+  background: #f8fafc;
+}
+:root[data-theme="light"] .serial-body { color: #047857; }
+:root[data-theme="light"] .btn-cyber:hover { color: #fff; }
+:root[data-theme="light"] .readout-row { background: rgba(241, 245, 249, 0.8); }
+:root[data-theme="light"] .mcq-tag { color: #fff; }
+:root[data-theme="light"] .xp-chip { color: #78350f; background: #fef3c7; }
+:root[data-theme="light"] .buddy-wrap { filter: drop-shadow(0 4px 12px rgba(2, 132, 199, 0.2)); }
+:root[data-theme="light"] .boot-lines { color: var(--green); opacity: 0.6; }
+:root[data-theme="light"] .start-title .title-glitch { text-shadow: 0 0 6px var(--cyan-glow), 1px 0 var(--magenta), -1px 0 var(--green); }
+:root[data-theme="light"] .final-title .title-glitch { text-shadow: 0 0 6px var(--amber-glow, var(--amber)), 1px 0 var(--magenta), -1px 0 var(--cyan); }
+:root[data-theme="light"] .fw-locked { color: #94a3b8; }
+
+/* ============== CODE TOAST ============== */
+.code-toast {
+  position: fixed;
+  top: 100px; right: -400px;
+  width: 360px;
+  background: var(--panel-solid);
+  border: 1px solid var(--green);
+  padding: 12px 16px;
+  z-index: 10000;
+  transition: right 0.4s ease;
+  box-shadow: 0 0 30px rgba(0,255,136,0.4);
+  font-family: var(--font-mono);
+}
+.code-toast.show { right: 20px; }
+.toast-head {
+  color: var(--green);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+  text-shadow: 0 0 4px var(--green-dim);
+}
+.toast-body {
+  background: var(--code-bg);
+  padding: 8px 10px;
+  font-size: 11px;
+  color: var(--code-text);
+  max-height: 120px;
+  overflow: hidden;
+  border-left: 2px solid var(--green);
+}
+.toast-body > div { margin: 2px 0; }
+
+/* ============== RESPONSIVE ============== */
+@media (max-width: 1100px) {
+  .grid { grid-template-columns: 1fr; }
+  .panel { min-height: 420px; }
+  .boot-lines { font-size: 10px; }
+}
+@media (max-width: 640px) {
+  .hex-frame { padding: 24px 20px; }
+  .start-title .title-glitch { font-size: 32px; letter-spacing: 2px; }
+  .start-title .title-main { font-size: 20px; letter-spacing: 3px; }
+  .hud-header { flex-direction: column; gap: 10px; clip-path: none; }
+  .final-stats { grid-template-columns: repeat(2, 1fr); }
+  .final-title .title-glitch { font-size: 28px; letter-spacing: 3px; }
+  .boot-lines { display: none; }
+}
+
+/* ============== REDUCED MOTION ============== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .grid-floor { animation: none; }
+  .scanner-ring { animation: none; }
+}
+
+/* =====================================================
+   IRRIGATION_OS extras (soil sensor, pump, water, serial)
+   ===================================================== */
+
+/* Syntax colours for every code view (firmware panel, preview, toast) */
+.firmware-code .kw, .preview-code .kw, .toast-body .kw { color: var(--code-key); font-weight: 700; }
+.firmware-code .str, .preview-code .str, .toast-body .str { color: var(--code-str); }
+.firmware-code .num, .preview-code .num, .toast-body .num { color: var(--code-num); }
+.firmware-code .fn, .preview-code .fn, .toast-body .fn { color: var(--code-fn); }
+.firmware-code .cmt, .preview-code .cmt, .toast-body .cmt { color: var(--code-cmt); font-style: italic; }
+
+/* Soil slider: dry (brown) -> wet (blue) */
+#soilSlider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: linear-gradient(90deg, #b45309, #a3e635, #38bdf8, #0369a1);
+  outline: none;
+}
+#soilSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--green);
+  border: 2px solid var(--bg);
+  cursor: pointer;
+  box-shadow: 0 0 10px var(--green), 0 0 20px var(--green-dim);
+  transform: rotate(45deg);
+}
+#soilSlider::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--green);
+  border: 2px solid var(--bg);
+  cursor: pointer;
+  transform: rotate(45deg);
+}
+
+.sim-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+.sim-sub b { color: var(--cyan); }
+
+/* Moisture bar with DRY_LIMIT marker */
+.moist-bar { overflow: visible; }
+.moist-bar-fill { background: linear-gradient(90deg, #b45309, #a3e635, #38bdf8); }
+.limit-mark {
+  position: absolute;
+  left: 30%;
+  top: -5px; bottom: -5px;
+  width: 2px;
+  background: var(--red);
+  box-shadow: 0 0 6px var(--red);
+}
+.limit-caption {
+  font-size: 9px;
+  color: var(--red);
+  letter-spacing: 1px;
+  margin-top: 6px;
+}
+
+/* Pump status */
+.pump-state {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 18px;
+  letter-spacing: 2px;
+  text-align: center;
+  padding: 10px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  background: rgba(0,0,0,0.25);
+  transition: all 0.3s;
+}
+.pump-state.on {
+  color: #38bdf8;
+  border-color: #38bdf8;
+  box-shadow: 0 0 18px rgba(56,189,248,0.45), inset 0 0 12px rgba(56,189,248,0.2);
+  animation: ledPulse 1s infinite;
+}
+.sim-serial { background: rgba(0,0,0,0.25); border: 1px solid var(--border); padding: 12px 14px; }
+.sim-serial .serial { min-height: 170px; }
+
+/* Water + pump animation inside the circuit */
+.circuit-svg .lbl { font-family: var(--font-display); font-weight: 700; font-size: 15px; fill: #e5ece7; }
+:root[data-theme="light"] .circuit-svg .lbl { fill: #15211b; }
+.circuit-svg .pinD { font-family: var(--font-mono); font-weight: 700; font-size: 11px; fill: #e5ece7; }
+:root[data-theme="light"] .circuit-svg .pinD { fill: #15211b; }
+.circuit-svg .legend-txt { font-family: var(--font-mono); font-size: 11px; font-weight: 700; fill: #cbd5e1; }
+:root[data-theme="light"] .circuit-svg .legend-txt { fill: #334155; }
+.circuit-svg .waterflow {
+  fill: none;
+  stroke: #bfe0ff;
+  stroke-width: 3;
+  stroke-dasharray: 6 10;
+  animation: wire-flow 0.5s linear infinite;
+  display: none;
+}
+.circuit-svg .pump-flow { display: none; }
+.circuit-svg.pump-on .waterflow,
+.circuit-svg.pump-on .pump-flow { display: inline; }
+.circuit-svg .pump-glow { opacity: 0; transition: opacity 0.3s; }
+.circuit-svg.pump-on .pump-glow { opacity: 1; animation: ledPulse 0.8s infinite; }
+.circuit-svg .soil, .circuit-svg .leaf { transition: fill 0.4s; }
+@media (prefers-reduced-motion: reduce) {
+  .circuit-svg .waterflow, .circuit-svg.pump-on .pump-glow { animation: none; }
+}
+
+@media (max-width: 900px) {
+  .sim-strip-grid-v2 { grid-template-columns: 1fr; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- ============== GLOBAL EFFECTS ============== -->
+<div class="scanlines"></div>
+<div class="grid-floor"></div>
+<div class="vignette"></div>
+<canvas id="confettiCanvas"></canvas>
+
+<!-- ============== START SCREEN ============== -->
+<section id="startScreen" class="screen">
+  <div class="hex-frame start-frame">
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+
+    <div class="start-tag">// CLASSIFIED • ENGINEER CLEARANCE REQUIRED</div>
+    <h1 class="start-title">
+      <span class="title-glitch" data-text="IRRIGATION">IRRIGATION</span>
+      <span class="title-main">SYSTEM OS</span>
+      <span class="title-sub">[ ARDUINO FIELD OPERATION ]</span>
+    </h1>
+
+    <div class="start-preview">
+      <div class="preview-left">
+        <div class="preview-head">
+          <span>⚡ CIRCUIT</span>
+          <span class="preview-subtle">// Soil sensor + Arduino UNO + L298N + Pump</span>
+        </div>
+        <div id="startDog" class="preview-circuit"></div>
+        <button id="lcdResetBtn" class="btn-cyber btn-ghost preview-reset">↻ RESTART WATERING DEMO</button>
+      </div>
+      <div class="preview-right">
+        <div class="preview-head">
+          <span>📄 IRRIGATION.ino</span>
+          <span class="preview-subtle">// what you will build, line by line</span>
+        </div>
+        <pre class="preview-code" id="previewCode"></pre>
+      </div>
+    </div>
+
+    <button id="startBtn" class="btn-cyber btn-huge">
+      <span class="btn-bracket">[</span>
+      <span class="btn-text">▶ INITIATE MISSION</span>
+      <span class="btn-bracket">]</span>
+    </button>
+
+    <div class="start-sound">
+      <button id="startSoundToggle" class="sound-toggle">◉ AUDIO:ON</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============== MAIN APP ============== -->
+<main id="app" class="hidden">
+
+  <!-- HEADER / HUD -->
+  <header class="hud-header">
+    <div class="hud-section hud-left">
+      <div class="hud-logo">
+        <span class="logo-dot"></span>
+        IRRIGATION<span class="logo-dim">_OS</span>
+      </div>
+      <div class="hud-status"><span class="dot-online"></span> SYSTEM ONLINE</div>
+    </div>
+
+    <div class="hud-section hud-center">
+      <div class="hud-mission-label">
+        <span class="hud-tag">// CURRENT ASSIGNMENT</span>
+        <span class="hud-mission">MISSION <span id="missionNum">01</span>/<span id="missionTotal">13</span></span>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-segments" id="progressSegments"></div>
+      </div>
+    </div>
+
+    <div class="hud-section hud-right">
+      <div class="xp-chip">
+        <span class="xp-icon">⚡</span>
+        <span class="xp-label">XP</span>
+        <span id="xpValue">0000</span>
+      </div>
+      <button id="themeToggle" class="sound-toggle" title="Toggle theme">☀</button>
+      <button id="soundToggle" class="sound-toggle">◉</button>
+    </div>
+  </header>
+
+  <!-- MAIN GRID -->
+  <div class="grid">
+
+    <!-- LEFT: Circuit -->
+    <section class="panel panel-buddy">
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+
+      <div class="panel-head">
+        <span class="head-icon">◢</span>
+        CIRCUIT WIRING
+        <span class="head-status" id="buddyHeadStatus">● LIVE</span>
+      </div>
+
+      <div class="buddy-stage">
+        <div class="stage-grid"></div>
+        <div class="buddy-particles" id="buddyParticles"></div>
+        <div class="buddy-wrap" id="buddyWrap"></div>
+        <div class="stage-corners">
+          <span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+
+      <div class="buddy-readout">
+        <div class="readout-row">
+          <span class="readout-label">STATUS</span>
+          <span class="readout-value" id="buddyStatus">AWAITING_CODE</span>
+        </div>
+        <div class="readout-row">
+          <span class="readout-label">COMMS</span>
+          <span class="readout-value" id="buddyBubble">// hi engineer...</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- CENTER: Mission -->
+    <section class="panel panel-mission">
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+
+      <div class="panel-head">
+        <span class="head-icon">▶</span>
+        <span id="missionTitle">MISSION BRIEFING</span>
+      </div>
+
+      <div class="mission-body" id="missionBody"></div>
+
+      <div class="mission-footer">
+        <button id="prevBtn" class="btn-cyber btn-ghost">◀ BACK</button>
+        <div id="feedback" class="feedback">// awaiting input...</div>
+        <button id="nextBtn" class="btn-cyber">EXECUTE ▶</button>
+      </div>
+    </section>
+
+    <!-- RIGHT: Code Viewer -->
+    <section class="panel panel-code">
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+
+      <div class="panel-head">
+        <span class="head-icon">◆</span>
+        IRRIGATION.ino
+        <span class="fw-badge" id="firmwareProgress">0/31 LINES</span>
+      </div>
+
+      <pre class="firmware-code firmware-code-inline" id="firmwareCode"></pre>
+
+      <div class="firmware-legend">
+        <span><span class="legend-dot ok"></span> UNLOCKED</span>
+        <span><span class="legend-dot locked"></span> SOLVE MISSION</span>
+      </div>
+    </section>
+  </div>
+
+  <!-- SIMULATOR STRIP (full-width below the grid) -->
+  <section class="panel panel-sim-strip">
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+
+    <div class="panel-head">
+      <span class="head-icon">◆</span>
+      FIELD SIMULATOR
+      <span class="head-status">● LIVE TEST ZONE</span>
+    </div>
+
+    <div class="sim-strip-grid-v2">
+
+      <!-- Soil sensor control -->
+      <div class="sim-cell sim-ctrl">
+        <div class="cell-label">🌱 SOIL SENSOR → A0</div>
+        <div class="sim-reading">
+          <span class="sim-reading-value" id="moistValue">45</span>
+          <span class="sim-reading-unit">%</span>
+        </div>
+        <div class="sim-sub">analogRead(A0) = <b id="rawValue">395</b></div>
+        <div class="slider-wrap">
+          <button class="step-btn" id="soilMinus" title="1% drier">−</button>
+          <input type="range" id="soilSlider" min="0" max="1023" value="395" step="1" />
+          <button class="step-btn" id="soilPlus" title="1% wetter">+</button>
+        </div>
+        <div class="slider-labels"><span>0 · DRY</span><span>1023 · WET</span></div>
+
+        <div class="hum-bar moist-bar">
+          <div id="moistFill" class="hum-bar-fill moist-bar-fill"></div>
+          <span class="limit-mark"></span>
+        </div>
+        <div class="limit-caption">▲ red line = DRY_LIMIT (30%)</div>
+      </div>
+
+      <!-- H-Bridge + pump -->
+      <div class="sim-cell sim-ctrl">
+        <div class="cell-label">⚙️ L298N H-BRIDGE → PUMP</div>
+        <div class="leds">
+          <div class="led-item">
+            <div class="led-ring"><div class="led led-cold" id="ledIn1"></div></div>
+            <div class="led-info">
+              <div class="led-label">IN1</div>
+              <div class="led-pin">motorPin1 · D2</div>
+              <div class="led-state" id="in1State">LOW</div>
+            </div>
+          </div>
+          <div class="led-item">
+            <div class="led-ring"><div class="led led-cold" id="ledIn2"></div></div>
+            <div class="led-info">
+              <div class="led-label">IN2</div>
+              <div class="led-pin">motorPin2 · D3</div>
+              <div class="led-state" id="in2State">LOW</div>
+            </div>
+          </div>
+        </div>
+        <div class="pump-state" id="pumpState">💤 PUMP OFF</div>
+      </div>
+
+      <!-- Serial monitor -->
+      <div class="sim-cell sim-serial">
+        <div class="cell-label">🖥️ SERIAL MONITOR</div>
+        <div class="serial">
+          <div class="serial-head"><span class="serial-dot"></span> OUTPUT <span class="serial-baud">9600 BAUD</span></div>
+          <div class="serial-body" id="serialBody"></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- BADGES BAR -->
+  <div id="badgesBar" class="badges-bar">
+    <span class="badges-label">// ACHIEVEMENTS UNLOCKED:</span>
+    <div class="badges-list" id="badgesList"><span class="badges-empty">none yet</span></div>
+  </div>
+</main>
+
+<!-- ============== BADGE POPUP ============== -->
+<div id="badgePopup" class="popup hidden">
+  <div class="popup-card badge-popup">
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+    <div class="popup-tag">// ACHIEVEMENT</div>
+    <div class="badge-huge" id="badgeHugeIcon">★</div>
+    <div class="popup-title">RANK UNLOCKED</div>
+    <div class="popup-body" id="badgeHugeName">First Code</div>
+    <button class="btn-cyber" id="badgeClose">▶ CONTINUE</button>
+  </div>
+</div>
+
+<!-- ============== FINAL SCREEN ============== -->
+<section id="finalScreen" class="screen hidden">
+  <div class="hex-frame final-frame">
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+
+    <div class="final-tag">// MISSION STATUS: COMPLETE</div>
+    <h1 class="final-title">
+      <span class="title-glitch" data-text="GARDEN AUTOMATED">GARDEN AUTOMATED</span>
+    </h1>
+
+    <div class="final-dog" id="finalDog"></div>
+
+    <div class="final-stats">
+      <div class="stat">
+        <div class="stat-tag">// ASSIGNMENTS</div>
+        <div class="stat-num" id="finalMissions">13/13</div>
+      </div>
+      <div class="stat">
+        <div class="stat-tag">// XP EARNED</div>
+        <div class="stat-num" id="finalXP">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-tag">// BUGS NEUTRALIZED</div>
+        <div class="stat-num" id="finalBugs">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-tag">// ATTEMPTS</div>
+        <div class="stat-num" id="finalAttempts">0</div>
+      </div>
+    </div>
+
+    <div class="final-rank">
+      <div class="rank-label">// FINAL RANK</div>
+      <div class="rank-name">★ ARDUINO IRRIGATION ENGINEER ★</div>
+    </div>
+
+    <p class="final-msg">
+      // You didn't just write code.<br/>
+      // You taught a plant how to <span class="hl">water itself</span>.
+    </p>
+
+    <button id="playAgainBtn" class="btn-cyber btn-huge">▶ NEW GAME+</button>
+  </div>
+</section>
+
+<script>
+/* =====================================================
+   SMART IRRIGATION SYSTEM — Arduino Coding Mission
+   ===================================================== */
+
+/* ============== CIRCUIT WIRING DIAGRAM ============== */
+/* Soil sensor → A0, Arduino D2/D3 → L298N IN1/IN2, pump on OUT1/OUT2,
+   9V battery → L298N 12V/GND, L298N 5V/GND → breadboard rails → Arduino + sensor. */
+const _unoTopPins = [429,444,459,474,489,504,519,534,549,564,584,599,614,629,644,659,674,689]
+  .map(x => `<rect x="${x - 3.5}" y="298.5" width="7" height="7"/>`).join('');
+const _unoBotPins = [448,463,478,495,512,527,542,575,590,605,620,635,650]
+  .map(x => `<rect x="${x - 3.5}" y="454.5" width="7" height="7"/>`).join('');
+const _bbHoles = (() => {
+  let s = '';
+  for (let y = 318; y <= 520; y += 12) for (const x of [323, 339, 366, 382]) s += `<rect x="${x - 2}" y="${y - 2}" width="4" height="4"/>`;
+  return s;
+})();
+
+/* [points, colour, extra class] — 'pump-flow' wires only show particles while the pump runs */
+const CIRCUIT_WIRES = [
+  ['364,185 390,185 390,262 445,262 445,248', '#d62828', ''],          // Battery +  → L298N 12V
+  ['366,215 380,215 380,272 462,272 462,248', '#262626', ''],          // Battery −  → L298N GND
+  ['474,248 474,282 331,282 331,312', '#262626', ''],                  // L298N GND  → − rail
+  ['491,248 491,292 374,292 374,312', '#d62828', ''],                  // L298N 5V   → + rail
+  ['374,470 495,470 495,458', '#d62828', ''],                          // + rail     → Arduino 5V
+  ['331,484 512,484 512,458', '#262626', ''],                          // − rail     → Arduino GND
+  ['515,540 515,510 374,510', '#d62828', ''],                          // Sensor VCC → + rail
+  ['535,540 535,497 331,497', '#262626', ''],                          // Sensor GND → − rail
+  ['555,540 555,522 575,522 575,458', '#e0a100', ''],                  // Sensor SIG → A0
+  ['659,302 659,276 564,276 564,244', '#7b3fe4', 'pump-flow'],         // D2 → IN1
+  ['644,302 644,288 584,288 584,244', '#7b3fe4', ''],                  // D3 → IN2
+  ['125,152 125,110 421,110', '#d62828', 'pump-flow'],                 // Pump red   → OUT1
+  ['168,152 168,130 400,130 400,150 421,150', '#262626', 'pump-flow']  // Pump black → OUT2
+];
+const _wiresSvg = CIRCUIT_WIRES.map(([p, c, cls]) => `
+    <g>
+      <polyline class="case" points="${p}"/>
+      <polyline class="wire" points="${p}" stroke="${c}"/>
+      <polyline class="flow ${cls}" points="${p}"/>
+    </g>`).join('');
+
+const DOG_SVG = `
+<svg viewBox="0 0 720 730" xmlns="http://www.w3.org/2000/svg" class="circuit-svg">
+  <defs>
+    <linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8cc8ff"/><stop offset="1" stop-color="#3a8ee6"/></linearGradient>
+  </defs>
+
+  <!-- Water tube: pump → plant pot -->
+  <path d="M100 180 H62 V20 H18 V612 H470 V598" fill="none" stroke="#3a8ee6" stroke-width="7" stroke-linejoin="round" stroke-linecap="round" opacity=".55"/>
+  <path class="waterflow" d="M100 180 H62 V20 H18 V612 H470 V598"/>
+
+  <!-- Water tank + pump -->
+  <g>
+    <rect x="40" y="40" width="174" height="175" rx="8" fill="#e8f3fb" stroke="#5a7a90" stroke-width="2.5"/>
+    <rect x="42" y="85" width="170" height="128" rx="6" fill="url(#waterGrad)" opacity=".75"/>
+    <rect class="pump-glow" x="94" y="146" width="102" height="60" rx="16" fill="none" stroke="#38bdf8" stroke-width="4"/>
+    <rect x="100" y="152" width="90" height="48" rx="12" fill="#e7e7e7" stroke="#333" stroke-width="2"/>
+    <text class="pump-label" x="145" y="181" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="700" font-size="14" fill="#222">PUMP</text>
+    <text x="127" y="66" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="700" font-size="15" fill="#2a4a60">Water tank</text>
+  </g>
+
+  <!-- L298N H-Bridge -->
+  <g>
+    <rect x="420" y="40" width="240" height="210" rx="8" fill="#d32f2f" stroke="#222" stroke-width="2"/>
+    <rect x="500" y="52" width="80" height="70" rx="3" fill="#1d1d1d"/>
+    <g stroke="#555" stroke-width="2"><line x1="510" y1="56" x2="510" y2="118"/><line x1="522" y1="56" x2="522" y2="118"/><line x1="534" y1="56" x2="534" y2="118"/><line x1="546" y1="56" x2="546" y2="118"/><line x1="558" y1="56" x2="558" y2="118"/><line x1="570" y1="56" x2="570" y2="118"/></g>
+    <text x="540" y="148" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="700" font-size="20" fill="#fff">L298N</text>
+    <text x="540" y="166" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#ffe1e1">H-Bridge motor driver</text>
+    <rect x="410" y="94" width="22" height="72" rx="3" fill="#1e88e5" stroke="#222"/>
+    <circle cx="421" cy="110" r="6" fill="#ddd" stroke="#333"/><circle cx="421" cy="150" r="6" fill="#ddd" stroke="#333"/>
+    <text x="440" y="114" font-family="JetBrains Mono, monospace" font-weight="700" font-size="10.5" fill="#fff">OUT1</text>
+    <text x="440" y="154" font-family="JetBrains Mono, monospace" font-weight="700" font-size="10.5" fill="#fff">OUT2</text>
+    <rect x="648" y="94" width="22" height="72" rx="3" fill="#1e88e5" stroke="#222"/>
+    <circle cx="659" cy="110" r="6" fill="#ddd" stroke="#333"/><circle cx="659" cy="150" r="6" fill="#ddd" stroke="#333"/>
+    <text x="640" y="114" text-anchor="end" font-family="JetBrains Mono, monospace" font-weight="700" font-size="10.5" fill="#fff">OUT3</text>
+    <text x="640" y="154" text-anchor="end" font-family="JetBrains Mono, monospace" font-weight="700" font-size="10.5" fill="#fff">OUT4</text>
+    <rect x="432" y="230" width="72" height="24" rx="3" fill="#1e88e5" stroke="#222"/>
+    <circle cx="445" cy="242" r="6" fill="#ddd" stroke="#333"/><circle cx="468" cy="242" r="6" fill="#ddd" stroke="#333"/><circle cx="491" cy="242" r="6" fill="#ddd" stroke="#333"/>
+    <g font-family="JetBrains Mono, monospace" font-weight="700" font-size="10" fill="#fff" text-anchor="middle">
+      <text x="445" y="222">12V</text><text x="468" y="222">GND</text><text x="491" y="222">5V</text>
+      <text x="564" y="228">IN1</text><text x="584" y="228">IN2</text><text x="604" y="228">IN3</text><text x="624" y="228">IN4</text>
+    </g>
+    <rect x="552" y="236" width="84" height="12" rx="2" fill="#111"/>
+    <g fill="#d4af37"><rect x="560" y="238" width="8" height="8"/><rect x="580" y="238" width="8" height="8"/><rect x="600" y="238" width="8" height="8"/><rect x="620" y="238" width="8" height="8"/></g>
+  </g>
+
+  <!-- 9V battery -->
+  <g>
+    <rect x="232" y="160" width="122" height="76" rx="6" fill="#1b1b1b" stroke="#000"/>
+    <rect x="300" y="160" width="40" height="76" fill="#e0a100"/>
+    <rect x="334" y="160" width="6" height="76" fill="#1b1b1b"/>
+    <text x="268" y="206" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="700" font-size="24" fill="#fff">9V</text>
+    <text x="320" y="202" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="700" font-size="9" fill="#1b1b1b" transform="rotate(-90 320 198)">BATTERY</text>
+    <rect x="354" y="178" width="10" height="14" fill="#bbb" stroke="#333"/>
+    <polygon points="354,208 364,208 366,215 364,222 354,222" fill="#bbb" stroke="#333"/>
+    <text x="352" y="176" text-anchor="end" font-family="JetBrains Mono, monospace" font-weight="700" font-size="12" fill="#fff">+</text>
+    <text x="352" y="234" text-anchor="end" font-family="JetBrains Mono, monospace" font-weight="700" font-size="12" fill="#fff">−</text>
+  </g>
+
+  <!-- Breadboard power rails -->
+  <g>
+    <rect x="306" y="300" width="84" height="230" rx="5" fill="#f1f0ea" stroke="#b9b6a8" stroke-width="1.5"/>
+    <line x1="331" y1="304" x2="331" y2="526" stroke="#2f6fd6" stroke-width="2"/>
+    <line x1="374" y1="304" x2="374" y2="526" stroke="#d62828" stroke-width="2"/>
+    <g fill="#9c9888">${_bbHoles}</g>
+    <text x="331" y="546" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="700" font-size="12" fill="#2f6fd6">− rail</text>
+    <text x="374" y="546" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="700" font-size="12" fill="#d62828">+ rail</text>
+    <text x="294" y="420" text-anchor="middle" class="pinD" transform="rotate(-90 294 420)">BREADBOARD</text>
+  </g>
+
+  <!-- Arduino UNO -->
+  <g>
+    <rect x="420" y="412" width="16" height="30" rx="3" fill="#222"/>
+    <rect x="420" y="300" width="280" height="160" rx="10" fill="#00878f" stroke="#0b4f54" stroke-width="2"/>
+    <rect x="421" y="296" width="276" height="12" rx="2" fill="#111"/>
+    <rect x="440" y="452" width="108" height="12" rx="2" fill="#111"/>
+    <rect x="566" y="452" width="92" height="12" rx="2" fill="#111"/>
+    <g fill="#777">${_unoTopPins}${_unoBotPins}</g>
+    <rect x="512" y="372" width="118" height="30" rx="3" fill="#1d1d1d"/>
+    <text x="571" y="392" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#bbb">ATmega328P</text>
+    <text x="458" y="355" font-family="JetBrains Mono, monospace" font-weight="700" font-size="22" fill="#fff">Arduino UNO</text>
+    <g font-family="JetBrains Mono, monospace" font-weight="700" font-size="10" fill="#fff" text-anchor="middle">
+      <text x="644" y="325">D3</text><text x="661" y="325">D2</text>
+      <text x="493" y="443">5V</text>
+      <text x="575" y="443">A0</text>
+    </g>
+    <text x="514" y="431" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="700" font-size="9.5" fill="#fff">GND</text>
+    <line x1="512" y1="434" x2="512" y2="450" stroke="#e0f2f1" stroke-width="1"/>
+  </g>
+
+  <!-- Plant pot + soil moisture sensor -->
+  <g>
+    <polygon points="440,585 670,585 650,688 460,688" fill="#b5653a" stroke="#6d3a1e" stroke-width="2"/>
+    <rect class="soil" x="446" y="585" width="218" height="20" fill="#8a6a4a"/>
+    <path d="M625 585 V512" stroke="#2e7d32" stroke-width="5" fill="none"/>
+    <path class="leaf" d="M625 548 C 600 530, 588 540, 590 556 C 605 560, 618 556, 625 548 Z" fill="#43a047"/>
+    <path class="leaf" d="M625 532 C 650 512, 664 522, 662 540 C 646 544, 632 540, 625 532 Z" fill="#43a047"/>
+    <path class="leaf" d="M625 514 C 612 496, 620 488, 630 492 C 636 500, 632 508, 625 514 Z" fill="#66bb6a"/>
+    <polygon points="513,566 525,566 525,660 519,670 513,660" fill="#c9a227" stroke="#6b5410"/>
+    <polygon points="545,566 557,566 557,660 551,670 545,660" fill="#c9a227" stroke="#6b5410"/>
+    <rect x="503" y="540" width="64" height="28" rx="4" fill="#d32f2f" stroke="#222"/>
+    <text x="535" y="559" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="700" font-size="8.5" fill="#fff">SOIL SENSOR</text>
+    <text x="498" y="562" class="pinD" text-anchor="end" style="font-size:10px">VCC GND SIG</text>
+    <text x="455" y="680" font-family="JetBrains Mono, monospace" font-weight="700" font-size="10.5" fill="#ffe9dc">Plant pot</text>
+    <text class="moist-text" x="605" y="650" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="700" font-size="20" fill="#fff">45%</text>
+  </g>
+
+  <!-- WIRES: each has 3 layers — case (outline) + wire (colour) + flow (animated particles) -->
+  <g class="circuit-wires">${_wiresSvg}
+  </g>
+
+  <!-- Legend -->
+  <g>
+    <rect x="20" y="712" width="20" height="4" fill="#d62828"/><text class="legend-txt" x="46" y="718">+ POWER</text>
+    <rect x="130" y="712" width="20" height="4" fill="#262626" stroke="#64748b" stroke-width="0.5"/><text class="legend-txt" x="156" y="718">GND</text>
+    <rect x="210" y="712" width="20" height="4" fill="#e0a100"/><text class="legend-txt" x="236" y="718">SENSOR SIG</text>
+    <rect x="340" y="712" width="20" height="4" fill="#7b3fe4"/><text class="legend-txt" x="366" y="718">ARDUINO ORDERS</text>
+    <rect x="500" y="712" width="20" height="4" fill="#3a8ee6"/><text class="legend-txt" x="526" y="718">WATER TUBE</text>
+  </g>
+</svg>
+`;
+
+/* ============== AUDIO SYSTEM ============== */
+class SoundSystem {
+  constructor() {
+    this.enabled = true;
+    this.ctx = null;
+  }
+  init() {
+    if (!this.ctx) {
+      try {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      } catch (e) { this.enabled = false; }
+    }
+  }
+  _tone(freq, duration, type = 'sine', volume = 0.2) {
+    if (!this.enabled || !this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+    osc.connect(gain); gain.connect(this.ctx.destination);
+    osc.start(); osc.stop(this.ctx.currentTime + duration);
+  }
+  _sequence(notes) {
+    if (!this.enabled || !this.ctx) return;
+    let t = 0;
+    notes.forEach(([freq, dur, type = 'sine', vol = 0.2]) => {
+      setTimeout(() => this._tone(freq, dur, type, vol), t);
+      t += dur * 500;
+    });
+  }
+  correct() { this._sequence([[659, 0.1], [784, 0.1], [1046, 0.2]]); }
+  wrong() { this._sequence([[400, 0.1, 'square', 0.15], [250, 0.2, 'square', 0.15]]); }
+  missionComplete() { this._sequence([[523, 0.1], [659, 0.1], [784, 0.1], [1046, 0.3]]); }
+  finalWin() {
+    this._sequence([
+      [523, 0.15], [659, 0.15], [784, 0.15], [1046, 0.3],
+      [988, 0.1], [1046, 0.4]
+    ]);
+  }
+  click() { this._tone(600, 0.05, 'sine', 0.1); }
+  badge() { this._sequence([[784, 0.1], [1046, 0.1], [1318, 0.3]]); }
+  bug() { this._tone(200, 0.3, 'sawtooth', 0.15); }
+}
+const sound = new SoundSystem();
+
+/* ============== CONFETTI ============== */
+class Confetti {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.particles = [];
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+    this.animate();
+  }
+  resize() {
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+  }
+  burst(amount = 80) {
+    const colors = ['#38bdf8', '#22c55e', '#a3e635', '#0ea5e9', '#f59e0b', '#06b6d4'];
+    for (let i = 0; i < amount; i++) {
+      this.particles.push({
+        x: window.innerWidth / 2 + (Math.random() - 0.5) * 100,
+        y: window.innerHeight / 2,
+        vx: (Math.random() - 0.5) * 12,
+        vy: Math.random() * -14 - 4,
+        gravity: 0.35,
+        size: Math.random() * 8 + 4,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        rotation: Math.random() * 360,
+        rotSpeed: (Math.random() - 0.5) * 10,
+        life: 1
+      });
+    }
+  }
+  animate() {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.particles = this.particles.filter(p => {
+      p.vy += p.gravity;
+      p.x += p.vx; p.y += p.vy;
+      p.rotation += p.rotSpeed;
+      p.life -= 0.008;
+      if (p.life <= 0) return false;
+      this.ctx.save();
+      this.ctx.translate(p.x, p.y);
+      this.ctx.rotate(p.rotation * Math.PI / 180);
+      this.ctx.fillStyle = p.color;
+      this.ctx.globalAlpha = p.life;
+      this.ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+      this.ctx.restore();
+      return true;
+    });
+    requestAnimationFrame(() => this.animate());
+  }
+}
+const confetti = new Confetti(document.getElementById('confettiCanvas'));
+
+/* ============== IRRIGATION MATH (same as the Arduino sketch) ============== */
+const DRY_LIMIT = 30;
+const WET_READING = 876; // sensor reading in fully wet soil (calibration)
+
+// Arduino map() uses whole-number maths, so the decimals are cut off
+function moistureFromRaw(raw) {
+  const pct = Math.trunc((raw * 100) / WET_READING);
+  return Math.max(0, Math.min(100, pct)); // constrain(…, 0, 100)
+}
+// Smallest raw reading that gives this moisture %
+function rawForMoisture(pct) {
+  return Math.ceil((pct * WET_READING) / 100);
+}
+
+/* ============== GAME STATE ============== */
+const state = {
+  currentMission: 0,
+  completedMissions: new Set(),
+  xp: 0,
+  attempts: 0,
+  bugsFixed: 0,
+  missedMissions: new Set(), // missions answered wrong at least once
+  badges: new Set(),
+  soilRaw: 395, // analogRead(A0) value
+  unlockedFirmware: new Set(), // keys from FIRMWARE_LINES unlocked so far
+  manualTestPassed: new Set(), // indices of final-test tests that passed
+  // Code state — represents what the student has "programmed"
+  codeState: {
+    serialReady: false,
+    logicActive: false
+  }
+};
+
+/* ============== FEEDBACK MESSAGES ============== */
+const CORRECT_MSGS = [
+  "BOOM! Correct!", "Arduino approves!", "The plant is impressed! 🌱",
+  "Nice coding!", "You're cooking! 🔥", "Clean code!",
+  "That was smart!", "That's exactly it!", "Perfect!"
+];
+const WRONG_MSGS = [
+  "Oops 😂 Try again!", "Arduino said: nope!",
+  "The plant disagrees! 🥀", "The bug is still hiding 🐞",
+  "The electrons are confused 😂", "Close! Try again.",
+  "Almost! Give it another shot."
+];
+const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+/* ============== FIRMWARE TEMPLATE ============== */
+/* The full target code — presented one slot per mission.
+   Mission N "unlocks" codeKey → the line becomes visible in the firmware viewer. */
+const FIRMWARE_ORDER = [
+  'pin_sensor', 'pin_m1', 'pin_m2',
+  'blank1',
+  'dry_limit',
+  'blank2',
+  'var_soil', 'var_moist',
+  'blank3',
+  'setup_open',
+  'pm_soil', 'pm_m1', 'pm_m2',
+  'blank4',
+  'serial_begin',
+  'setup_close',
+  'blank5',
+  'loop_open',
+  'read_soil',
+  'blank6',
+  'map_line', 'constrain_line',
+  'blank7',
+  'print_label', 'print_value', 'print_pct',
+  'blank8',
+  'if_open',
+  'pump_on_1', 'pump_on_2',
+  'blank9',
+  'msg_dry',
+  'else_open',
+  'pump_off_1', 'pump_off_2',
+  'blank10',
+  'msg_wet',
+  'if_close',
+  'blank11',
+  'loop_delay',
+  'loop_close'
+];
+
+/* ============== MISSIONS ============== */
+/* In the data the correct option is always listed first (correct: 0);
+   options are shuffled on screen so the answer is never in a fixed place. */
+const missions = [
+  // ========== M1 — MEET THE HARDWARE ==========
+  {
+    title: "Meet the Irrigation System",
+    story: `<strong>SYSTEM BOOT — Hi Engineer! I'm your thirsty plant. 🌱</strong><br/>
+            A <strong>soil sensor</strong> feels my soil, the <strong>Arduino</strong> decides,
+            and a <strong>water pump</strong> gives me a drink.<br/>
+            Before coding, let's understand the hardware. <em>(check the diagram)</em>`,
+    type: 'mcq-group',
+    questions: [
+      {
+        prompt: 'The soil sensor <strong>SIG</strong> wire goes to which Arduino pin?',
+        options: ['A0', 'D2', 'D3', '5V'],
+        correct: 0
+      },
+      {
+        prompt: 'The pump’s two wires are connected to:',
+        options: ['L298N OUT1 and OUT2', 'Arduino D2 and D3', 'Arduino 5V and GND', 'The breadboard rails'],
+        correct: 0
+      },
+      {
+        prompt: 'Why don’t we plug the pump straight into an Arduino pin?',
+        options: [
+          'A pin gives only ~20 mA — the pump needs ~200 mA, so we use the L298N H-Bridge',
+          'The pump only works on analog pins',
+          'Arduino pins can only be used for sensors',
+          'It would make the pump spin too fast'
+        ],
+        correct: 0
+      }
+    ],
+    hint: 'Follow the yellow wire from the sensor, and the pump wires from the tank.',
+    xp: 15,
+    buddyState: 'waiting',
+    buddySay: 'Help me water my plant!',
+    onComplete: (s) => { s.buddySay = 'Hardware understood!'; s.buddyState = 'comfortable'; }
+  },
+
+  // ========== M2 — SETUP vs LOOP ==========
+  {
+    title: "Setup vs Loop",
+    story: `Every Arduino program has <strong>two main functions</strong>:<br/>
+            <code>void setup()</code> — the <strong>startup</strong> block.<br/>
+            <code>void loop()</code> — the <strong>repeat forever</strong> block.`,
+    type: 'mcq-group',
+    questions: [
+      {
+        prompt: 'How many times does <code>setup()</code> run when the Arduino powers on?',
+        options: ['Exactly once, at the start', 'Every second', 'Forever, non-stop', 'Never — we have to call it ourselves'],
+        correct: 0
+      },
+      {
+        prompt: 'Checking the soil again and again belongs in…',
+        options: ['loop() — it repeats forever', 'setup() — it runs once', 'Neither — it happens by itself', 'A new function called water()'],
+        correct: 0
+      }
+    ],
+    hint: 'Think of <code>setup()</code> as "get everything ready" (ONCE), and <code>loop()</code> as "do the job repeatedly" (FOREVER).',
+    xp: 15,
+    buddySay: 'Why two functions?',
+    onComplete: (s) => { s.buddySay = 'Setup once, loop forever!'; s.buddyState = 'comfortable'; }
+  },
+
+  // ========== M3 — PIN VARIABLES ==========
+  {
+    title: "Name the Pins",
+    story: `We give each pin a <strong>name</strong>, so the code is easy to read.<br/>
+            Look at the purple wires: <strong>IN1</strong> and <strong>IN2</strong> on the L298N get their orders from the Arduino.`,
+    type: 'mcq-group',
+    questions: [
+      { prompt: '<code>int soilSensor = ___;</code>', options: ['A0', '2', '3', '13'], correct: 0 },
+      { prompt: '<code>int motorPin1 = ___;</code> <em>(wired to IN1)</em>', options: ['2', '3', 'A0', '8'], correct: 0 },
+      { prompt: '<code>int motorPin2 = ___;</code> <em>(wired to IN2)</em>', options: ['3', '2', 'A1', '7'], correct: 0 }
+    ],
+    hint: 'In the diagram: sensor SIG → A0, D2 → IN1, D3 → IN2.',
+    xp: 15,
+    buddySay: 'Which pin is which?',
+    unlocks: ['pin_sensor', 'pin_m1', 'pin_m2', 'blank1'],
+    onComplete: (s) => { s.buddySay = 'Pins named!'; s.buddyState = 'comfortable'; }
+  },
+
+  // ========== M4 — CONSTANT + VARIABLES ==========
+  {
+    title: "The Dry Limit",
+    story: `We need a rule: <strong>when is the soil too dry?</strong><br/>
+            <code>const int DRY_LIMIT = 30;</code><br/>
+            And two empty boxes to store readings later: <code>int soilValue;</code> and <code>int moisturePercentage;</code>`,
+    type: 'mcq-group',
+    questions: [
+      {
+        prompt: '<code>DRY_LIMIT = 30</code> means:',
+        options: ['Below 30% moisture, the soil counts as DRY', 'The pump runs for 30 seconds', 'The sensor is on pin 30', 'Water the plant 30 times'],
+        correct: 0
+      },
+      {
+        prompt: 'Why does <code>int soilValue;</code> have no value yet?',
+        options: ['We will store a sensor reading in it later, inside loop()', 'It is a mistake', 'It is always 30', 'Because it is a pin'],
+        correct: 0
+      }
+    ],
+    hint: 'A <code>const</code> is a fixed rule. A normal variable is a box we fill later.',
+    xp: 20,
+    buddySay: 'When am I thirsty?',
+    unlocks: ['dry_limit', 'blank2', 'var_soil', 'var_moist', 'blank3']
+  },
+
+  // ========== M5 — pinMode ==========
+  {
+    title: "Pin Directions",
+    story: `Inside <code>setup()</code>, tell the Arduino which pins <strong>listen</strong> (INPUT)
+            and which pins <strong>give orders</strong> (OUTPUT).<br/>
+            <em>(The Serial Monitor line is added for you.)</em>`,
+    type: 'mcq-group',
+    questions: [
+      { prompt: '<code>pinMode(soilSensor, ___);</code>', options: ['INPUT', 'OUTPUT', 'HIGH', 'A0'], correct: 0 },
+      { prompt: '<code>pinMode(motorPin1, ___);</code>', options: ['OUTPUT', 'INPUT', 'LOW', 'HIGH'], correct: 0 },
+      {
+        prompt: 'Why are the motor pins <strong>OUTPUT</strong>?',
+        options: ['The Arduino sends orders OUT to the H-Bridge', 'They read the soil', 'They give the pump its power', 'They receive data from the pump'],
+        correct: 0
+      }
+    ],
+    hint: 'The sensor sends data INTO the Arduino. The Arduino sends orders OUT to the L298N.',
+    xp: 20,
+    buddySay: 'Listen or talk?',
+    unlocks: ['setup_open', 'pm_soil', 'pm_m1', 'pm_m2', 'blank4', 'serial_begin', 'setup_close', 'blank5']
+  },
+
+  // ========== M6 — READ THE SOIL ==========
+  {
+    title: "Read the Soil",
+    story: `Inside <code>loop()</code>, read the soil sensor and store the number in <code>soilValue</code>.`,
+    type: 'mcq-group',
+    questions: [
+      { prompt: '<code>soilValue = ___;</code>', options: ['analogRead(soilSensor)', 'digitalRead(soilSensor)', 'readSoil()', 'soilSensor.read()'], correct: 0 },
+      { prompt: 'What range of numbers can <code>analogRead()</code> give?', options: ['0 to 1023', '0 or 1 only (LOW/HIGH)', '0 to 100', '0 to 9'], correct: 0 },
+      { prompt: 'Why not <code>digitalRead()</code>?', options: ['It only gives HIGH or LOW — we need a full number', 'It is slower', 'It only works on pin 13', 'It turns the pump on'], correct: 0 }
+    ],
+    hint: 'Analog = many values (0–1023). Digital = only two (HIGH/LOW).',
+    xp: 20,
+    buddySay: 'Feel my soil!',
+    unlocks: ['loop_open', 'read_soil', 'blank6']
+  },
+
+  // ========== M7 — MAP TO PERCENT ==========
+  {
+    title: "Turn It Into %",
+    story: `0–1023 is hard to understand. People like <strong>percent</strong>!<br/>
+            Our sensor reads <strong>876</strong> in fully wet soil, so:<br/>
+            <code>moisturePercentage = map(soilValue, 0, 876, 0, 100);</code><br/>
+            <em>(The constrain line and the Serial print lines are added for you.)</em>`,
+    type: 'mcq-group',
+    questions: [
+      {
+        prompt: 'What does <strong>876</strong> mean in the <code>map()</code>?',
+        options: ['Our sensor’s reading in fully wet soil (= 100%)', 'The pin number', 'The delay time', 'The pump speed'],
+        correct: 0
+      },
+      { prompt: '<code>soilValue</code> = 438. What is the moisture?', options: ['50%', '43%', '438%', '87%'], correct: 0 },
+      { prompt: '<code>soilValue</code> = 0. What is the moisture?', options: ['0% — bone dry', '100%', '876%', '50%'], correct: 0 }
+    ],
+    hint: '438 is exactly half of 876 → half of 100%.',
+    xp: 20,
+    buddySay: 'How wet am I?',
+    unlocks: ['map_line', 'constrain_line', 'blank7', 'print_label', 'print_value', 'print_pct', 'blank8'],
+    onComplete: (s) => { s.buddySay = 'I speak percent now!'; s.buddyState = 'comfortable'; }
+  },
+
+  // ========== M8 — THE DECISION ==========
+  {
+    title: "The Big Decision",
+    story: `Now the brain decides: <strong>is the soil dry?</strong><br/>
+            <code>if (moisturePercentage ___ DRY_LIMIT) {</code>`,
+    type: 'mcq-group',
+    questions: [
+      { prompt: 'Water when the soil is <strong>drier</strong> than the limit. Which sign?', options: ['<', '>', '==', '='], correct: 0 },
+      { prompt: 'Moisture is <strong>exactly 30%</strong>. Is the condition true?', options: ['False — 30 is not less than 30, pump OFF', 'True — pump ON', 'The Arduino crashes', 'The pump blinks'], correct: 0 },
+      { prompt: 'Moisture is <strong>12%</strong>. What happens?', options: ['Condition is true → pump ON', 'Condition is false → pump OFF', 'Nothing, 12 is too small', 'The sensor turns off'], correct: 0 }
+    ],
+    hint: '<code>&lt;</code> means "less than". <code>=</code> is not a comparison — it stores a value!',
+    xp: 20,
+    buddySay: 'Am I thirsty?',
+    unlocks: ['if_open'],
+    onComplete: (s) => { s.buddySay = 'Decision logic ready!'; s.buddyState = 'comfortable'; }
+  },
+
+  // ========== M9 — PUMP ON ==========
+  {
+    title: "Pump ON!",
+    story: `The soil is dry → turn the pump <strong>ON</strong>.<br/>
+            The L298N follows this table for Motor A:<br/>
+            <code>IN1 HIGH + IN2 LOW → pump ON</code> &nbsp; <code>IN1 LOW + IN2 LOW → pump OFF</code>`,
+    type: 'mcq-group',
+    questions: [
+      { prompt: '<code>digitalWrite(motorPin1, ___);</code>', options: ['HIGH', 'LOW', 'OUTPUT', '1023'], correct: 0 },
+      { prompt: '<code>digitalWrite(motorPin2, ___);</code>', options: ['LOW', 'HIGH', 'INPUT', '30'], correct: 0 }    ],
+    hint: 'Use the table in the story.',
+    xp: 25,
+    buddySay: 'Water me!',
+    unlocks: ['pump_on_1', 'pump_on_2', 'blank9', 'msg_dry'],
+    onComplete: (s) => { s.buddySay = 'Pump command ready! 💦'; s.buddyState = 'dry'; }
+  },
+
+  // ========== M10 — ELSE: PUMP OFF ==========
+  {
+    title: "Else: Pump OFF",
+    story: `If the soil is <strong>not</strong> dry, the pump must stop — or the pot will flood! 🌊<br/>
+            We use <code>} else {</code>`,
+    type: 'mcq-group',
+    questions: [
+      { prompt: 'When does the <code>else</code> part run?', options: ['When the if-condition is false (moisture is 30% or more)', 'Always', 'Never', 'Only at startup'], correct: 0 },
+      { prompt: 'Which pair turns the pump <strong>OFF</strong>?', options: ['motorPin1 LOW, motorPin2 LOW', 'motorPin1 HIGH, motorPin2 LOW', 'motorPin1 LOW, motorPin2 HIGH', 'motorPin1 OUTPUT, motorPin2 INPUT'], correct: 0 },
+    ],
+    hint: 'Look at the table from the last mission: LOW + LOW = OFF.',
+    xp: 25,
+    buddySay: "Don't drown me!",
+    unlocks: ['else_open', 'pump_off_1', 'pump_off_2', 'blank10', 'msg_wet', 'if_close', 'blank11'],
+    onComplete: (s) => { s.buddySay = 'No flooding!'; s.buddyState = 'wet'; }
+  },
+
+  // ========== M11 — LOOP DELAY ==========
+  {
+    title: "Loop Delay",
+    story: `Check the soil once every <strong>second</strong>, not millions of times.`,
+    type: 'mcq-group',
+    questions: [
+      { prompt: '<code>delay(1000);</code> waits for…', options: ['1 second', '1000 seconds', '10 seconds', '1 minute'], correct: 0 },
+    ],
+    hint: '1 second = 1000 milliseconds.',
+    xp: 15,
+    buddySay: 'Pace yourself!',
+    unlocks: ['loop_delay', 'loop_close']
+  },
+
+  // ========== M12 — REVIEW FIRMWARE ==========
+  {
+    title: "Review the Firmware",
+    story: `Your complete Irrigation firmware is <strong>READY</strong>! 🎉<br/>
+            Look at <code>IRRIGATION.ino</code> on the right. Answer these to prove you understand it.`,
+    type: 'mcq-group',
+    questions: [
+      {
+        prompt: 'What is the <strong>direction</strong> of information in our system?',
+        options: ['Soil sensor → Arduino → L298N → Pump', 'Pump → Arduino → Soil sensor', 'Arduino does everything alone', 'Battery → Sensor → Pump'],
+        correct: 0
+      },
+      { prompt: 'How often does the Arduino check the soil?', options: ['Every 1 second', 'Once at startup', 'Every 30 seconds', 'Only when the soil is dry'], correct: 0 },
+      {
+        prompt: 'Which line <strong>decides</strong> whether to water?',
+        options: ['if (moisturePercentage < DRY_LIMIT)', 'pinMode(motorPin1, OUTPUT);', 'soilValue = analogRead(soilSensor);', 'delay(1000);'],
+        correct: 0
+      },
+      { prompt: 'Moisture is <strong>31%</strong>. The pump is…', options: ['OFF', 'ON', 'Running backwards', 'Half on'], correct: 0 }
+    ],
+    xp: 25,
+    buddySay: 'FIRMWARE READY!',
+    onComplete: (s) => {
+      s.codeState.serialReady = true;
+      s.codeState.logicActive = true;
+      s.buddySay = 'IRRIGATION ONLINE!';
+      s.buddyState = 'celebrate';
+    }
+  },
+
+  // ========== M13 — FIELD TEST (MANUAL) ==========
+  {
+    title: "👑 Deploy & Field Test",
+    story: `The plant is in your hands. <strong>You</strong> are the field tester!<br/>
+            Drag the <strong>soil sensor</strong> slider below and watch the pump, the
+            <strong>Serial Monitor</strong> and the circuit react live.<br/>
+            Hit each test's moisture value and the test turns ✓ PASSED automatically.`,
+    type: 'manual-test',
+    xp: 100,
+    showSim: true,
+    hint: 'Use − / + to move 1% at a time, or the GO button to jump straight there. Watch test #3 carefully!',
+    buddySay: "Test my firmware!",
+    tests: [
+      { moist: 10, label: 'Desert-dry soil', expect: 'PUMP ON' },
+      { moist: 29, label: 'Just below the limit', expect: 'PUMP ON' },
+      { moist: 30, label: 'Exactly on the limit', expect: 'PUMP OFF' },
+      { moist: 80, label: 'Just watered', expect: 'PUMP OFF' },
+      { moist: 100, raw: 1000, label: 'Flooded mud (reading 1000 → constrain)', expect: 'PUMP OFF' }
+    ],
+    onStart: (s) => { s.codeState.serialReady = true; s.codeState.logicActive = true; },
+    onComplete: (s) => {
+      s.buddySay = "GARDEN AUTOMATED! 🏆";
+      s.buddyState = 'celebrate';
+    }
+  }
+];
+
+/* ============== FIRMWARE LINES ============== */
+/* Each key maps to { code, hint }.
+   code = real line shown AFTER mission unlock.
+   hint = vague description shown BEFORE unlock (no answer leaks). */
+const _fw = (code, hint) => ({ code, hint });
+const _BLANK = { code: ' ', hint: ' ', isBlank: true };
+
+const FIRMWARE_LINES = {
+  pin_sensor:     _fw(`<span class="kw">int</span> soilSensor = A0;`,                                                   'name the soil sensor pin'),
+  pin_m1:         _fw(`<span class="kw">int</span> motorPin1 = <span class="num">2</span>;`,                           'name the IN1 pin'),
+  pin_m2:         _fw(`<span class="kw">int</span> motorPin2 = <span class="num">3</span>;`,                           'name the IN2 pin'),
+
+  dry_limit:      _fw(`<span class="kw">const int</span> DRY_LIMIT = <span class="num">30</span>;`,                  'the dry limit rule'),
+
+  var_soil:       _fw(`<span class="kw">int</span> soilValue;`,                                                       'a box for the raw reading'),
+  var_moist:      _fw(`<span class="kw">int</span> moisturePercentage;`,                                              'a box for the percentage'),
+
+  setup_open:     _fw(`<span class="kw">void</span> <span class="fn">setup</span>() {`,                               null),
+  pm_soil:        _fw(`  <span class="fn">pinMode</span>(soilSensor, INPUT);`,                                       'sensor pin direction'),
+  pm_m1:          _fw(`  <span class="fn">pinMode</span>(motorPin1, OUTPUT);`,                                       'motor pin 1 direction'),
+  pm_m2:          _fw(`  <span class="fn">pinMode</span>(motorPin2, OUTPUT);`,                                       'motor pin 2 direction'),
+
+  serial_begin:   _fw(`  Serial.<span class="fn">begin</span>(<span class="num">9600</span>);`,                       'start the Serial Monitor'),
+  setup_close:    _fw(`}`, null),
+
+  loop_open:      _fw(`<span class="kw">void</span> <span class="fn">loop</span>() {`,                                null),
+  read_soil:      _fw(`  soilValue = <span class="fn">analogRead</span>(soilSensor);`,                              'read the soil sensor'),
+
+  map_line:       _fw(`  moisturePercentage = <span class="fn">map</span>(soilValue, <span class="num">0</span>, <span class="num">876</span>, <span class="num">0</span>, <span class="num">100</span>);`, 'convert the reading to %'),
+  constrain_line: _fw(`  moisturePercentage = <span class="fn">constrain</span>(moisturePercentage, <span class="num">0</span>, <span class="num">100</span>);`, 'keep the % in range'),
+
+  print_label:    _fw(`  Serial.<span class="fn">print</span>(<span class="str">"Soil Moisture: "</span>);`,           'print a label'),
+  print_value:    _fw(`  Serial.<span class="fn">print</span>(moisturePercentage);`,                                'print the value'),
+  print_pct:      _fw(`  Serial.<span class="fn">println</span>(<span class="str">"%"</span>);`,                       'print the unit + new line'),
+
+  if_open:        _fw(`  <span class="kw">if</span> (moisturePercentage &lt; DRY_LIMIT) {`,                          'is the soil dry?'),
+  pump_on_1:      _fw(`    <span class="fn">digitalWrite</span>(motorPin1, HIGH);`,                                  'order for IN1'),
+  pump_on_2:      _fw(`    <span class="fn">digitalWrite</span>(motorPin2, LOW);`,                                   'order for IN2'),
+  msg_dry:        _fw(`    Serial.<span class="fn">println</span>(<span class="str">"Soil is DRY - Pump ON"</span>);`,  'report the dry soil'),
+
+  else_open:      _fw(`  } <span class="kw">else</span> {`,                                                         'otherwise…'),
+  pump_off_1:     _fw(`    <span class="fn">digitalWrite</span>(motorPin1, LOW);`,                                   'order for IN1'),
+  pump_off_2:     _fw(`    <span class="fn">digitalWrite</span>(motorPin2, LOW);`,                                   'order for IN2'),
+  msg_wet:        _fw(`    Serial.<span class="fn">println</span>(<span class="str">"Soil is WET - Pump OFF"</span>);`, 'report the wet soil'),
+  if_close:       _fw(`  }`, null),
+
+  loop_delay:     _fw(`  <span class="fn">delay</span>(<span class="num">1000</span>);`,                                 'wait between checks'),
+  loop_close:     _fw(`}`, null),
+
+  blank1: _BLANK, blank2: _BLANK, blank3: _BLANK, blank4: _BLANK, blank5: _BLANK, blank6: _BLANK,
+  blank7: _BLANK, blank8: _BLANK, blank9: _BLANK, blank10: _BLANK, blank11: _BLANK
+};
+
+/* ============== BADGES SYSTEM ============== */
+const BADGES = [
+  { id: 'firstCode', icon: '🏅', name: 'First Code', after: 3 },
+  { id: 'sensorMaster', icon: '🏅', name: 'Soil Sensor Master', after: 7 },
+  { id: 'logicBuilder', icon: '🏅', name: 'Logic Builder', after: 8 },
+  { id: 'pumpCommander', icon: '🏅', name: 'Pump Commander', after: 11 },
+  { id: 'irrigationEngineer', icon: '🏆', name: 'Arduino Irrigation Engineer', after: 13 }
+];
+
+function checkBadges() {
+  const completedCount = state.completedMissions.size;
+  BADGES.forEach(b => {
+    if (completedCount >= b.after && !state.badges.has(b.id)) {
+      state.badges.add(b.id);
+      showBadgePopup(b);
+      renderBadges();
+    }
+  });
+}
+
+function renderBadges() {
+  const list = document.getElementById('badgesList');
+  list.innerHTML = '';
+  if (state.badges.size === 0) {
+    const empty = document.createElement('span');
+    empty.className = 'badges-empty';
+    empty.textContent = 'none yet';
+    list.appendChild(empty);
+    return;
+  }
+  state.badges.forEach(bid => {
+    const b = BADGES.find(x => x.id === bid);
+    if (!b) return;
+    const chip = document.createElement('div');
+    chip.className = 'badge-chip';
+    chip.textContent = `${b.icon} ${b.name.toUpperCase()}`;
+    list.appendChild(chip);
+  });
+}
+
+function showBadgePopup(badge) {
+  document.getElementById('badgeHugeIcon').textContent = badge.icon;
+  document.getElementById('badgeHugeName').textContent = badge.name;
+  document.getElementById('badgePopup').classList.remove('hidden');
+  sound.badge();
+  confetti.burst(60);
+}
+
+/* ============== CIRCUIT RENDERING ============== */
+function renderBuddy(container) {
+  container.innerHTML = DOG_SVG;
+}
+
+/* Paint soil colour, plant health, moisture label and pump state into one circuit */
+function paintCircuit(container, pct, pumpOn) {
+  const svg = container && container.querySelector('svg');
+  if (!svg) return;
+  const t = pct / 100;
+  const soil = svg.querySelector('.soil');
+  if (soil) soil.setAttribute('fill', `rgb(${Math.round(160 - 90 * t)},${Math.round(125 - 70 * t)},${Math.round(90 - 55 * t)})`);
+  svg.querySelectorAll('.leaf').forEach((leaf, i) => {
+    leaf.setAttribute('fill', pct < 20 ? '#9e9d24' : (i === 2 ? '#66bb6a' : '#43a047'));
+  });
+  const txt = svg.querySelector('.moist-text');
+  if (txt) txt.textContent = `${pct}%`;
+  const label = svg.querySelector('.pump-label');
+  if (label) label.textContent = pumpOn ? 'PUMP ON' : 'PUMP';
+  svg.classList.toggle('pump-on', pumpOn);
+}
+
+/* ============== START-SCREEN PREVIEW (watering demo + code) ============== */
+let lcdDemoTimers = [];
+
+function stopLcdDemo() {
+  lcdDemoTimers.forEach(id => { clearTimeout(id); clearInterval(id); });
+  lcdDemoTimers = [];
+}
+
+/* Soil dries out → drops below 30% → pump waters → soil gets wet → pump stops → repeat */
+function runLcdDemo() {
+  stopLcdDemo();
+  const box = document.getElementById('startDog');
+  let pct = 60;
+  let pumpOn = false;
+  paintCircuit(box, pct, pumpOn);
+  const iv = setInterval(() => {
+    if (pumpOn) {
+      pct = Math.min(100, pct + 4);
+      if (pct >= 70) pumpOn = false;
+    } else {
+      pct = Math.max(0, pct - 2);
+      pumpOn = pct < DRY_LIMIT;
+    }
+    paintCircuit(box, pct, pumpOn);
+  }, 350);
+  lcdDemoTimers.push(iv);
+}
+
+/* Full IRRIGATION.ino source as syntax-highlighted HTML (for preview) */
+function renderPreviewCode() {
+  const el = document.getElementById('previewCode');
+  if (!el) return;
+  el.innerHTML = FIRMWARE_ORDER
+    .map(key => FIRMWARE_LINES[key].isBlank ? '' : FIRMWARE_LINES[key].code)
+    .join('\n');
+}
+
+function setBuddyState(stateName) {
+  const wrap = document.getElementById('buddyWrap');
+  const particles = document.getElementById('buddyParticles');
+  if (!wrap) return;
+  // Keep the circuit static
+  wrap.className = 'buddy-wrap';
+  if (particles) particles.innerHTML = '';
+
+  const statusEl = document.getElementById('buddyStatus');
+  if (!statusEl) return;
+  statusEl.className = 'readout-value';
+
+  switch (stateName) {
+    case 'waiting':
+      statusEl.classList.add('state-waiting');
+      statusEl.textContent = 'AWAITING_CODE';
+      break;
+    case 'dry':
+      statusEl.classList.add('state-hot');
+      statusEl.textContent = 'SOIL:DRY · PUMP:ON';
+      break;
+    case 'wet':
+      statusEl.classList.add('state-cold');
+      statusEl.textContent = 'SOIL:WET · PUMP:OFF';
+      break;
+    case 'comfortable':
+      statusEl.classList.add('state-ok');
+      statusEl.textContent = 'OPTIMAL';
+      break;
+    case 'confused':
+      statusEl.classList.add('state-bad');
+      statusEl.textContent = 'ERROR';
+      break;
+    case 'celebrate':
+      statusEl.classList.add('state-celebrate');
+      statusEl.textContent = 'MISSION_SUCCESS';
+      break;
+  }
+}
+
+function setBuddyBubble(text) {
+  const el = document.getElementById('buddyBubble');
+  el.textContent = '> ' + text;
+}
+
+/* ============== SIMULATION UPDATE ============== */
+function updateSimulation() {
+  const raw = state.soilRaw;
+  const pct = moistureFromRaw(raw);
+  const pumpOn = pct < DRY_LIMIT; // if (moisturePercentage < DRY_LIMIT)
+
+  // Soil sensor readout
+  const moistEl = document.getElementById('moistValue');
+  if (moistEl) moistEl.textContent = pct;
+  const rawEl = document.getElementById('rawValue');
+  if (rawEl) rawEl.textContent = raw;
+  const fill = document.getElementById('moistFill');
+  if (fill) fill.style.width = pct + '%';
+
+  // H-Bridge inputs + pump
+  const setPin = (ledId, txtId, high) => {
+    const led = document.getElementById(ledId);
+    const txt = document.getElementById(txtId);
+    if (led) led.classList.toggle('on', high);
+    if (txt) {
+      txt.textContent = high ? 'HIGH' : 'LOW';
+      txt.classList.toggle('on-text', high);
+    }
+  };
+  setPin('ledIn1', 'in1State', pumpOn);
+  setPin('ledIn2', 'in2State', false);
+  const pumpEl = document.getElementById('pumpState');
+  if (pumpEl) {
+    pumpEl.textContent = pumpOn ? '💦 PUMP ON' : '💤 PUMP OFF';
+    pumpEl.classList.toggle('on', pumpOn);
+  }
+
+  // Circuit diagram (main panel)
+  paintCircuit(document.getElementById('buddyWrap'), pct, pumpOn);
+
+  // Plant reactions once the logic is coded
+  if (state.codeState.logicActive) {
+    if (pumpOn) {
+      setBuddyState('dry');
+      setBuddyBubble(pct < 15 ? 'So thirsty! Pump ON 💦' : 'A bit dry — watering!');
+    } else if (pct >= 95) {
+      setBuddyState('wet');
+      setBuddyBubble('Soaked! Pump stays OFF.');
+    } else {
+      setBuddyState('comfortable');
+      setBuddyBubble('Soil is moist. Pump OFF.');
+    }
+  }
+
+  // Manual test re-eval
+  evaluateManualTests();
+}
+
+/* ============== SERIAL MONITOR ============== */
+/* Mirrors the sketch: one report every delay(1000) */
+let serialInterval = null;
+
+function pushSerialReport() {
+  const body = document.getElementById('serialBody');
+  if (!body) return;
+  const pct = moistureFromRaw(state.soilRaw);
+  const lines = [
+    `Soil Moisture: ${pct}%`,
+    pct < DRY_LIMIT ? 'Soil is DRY - Pump ON' : 'Soil is WET - Pump OFF'
+  ];
+  lines.forEach(text => {
+    const line = document.createElement('div');
+    line.className = 'serial-line';
+    line.textContent = text;
+    body.appendChild(line);
+  });
+  while (body.children.length > 14) body.removeChild(body.firstChild);
+  body.scrollTop = body.scrollHeight;
+}
+
+function startSerialLoop() {
+  if (serialInterval) return;
+  const body = document.getElementById('serialBody');
+  if (body) body.innerHTML = '';
+  pushSerialReport();
+  serialInterval = setInterval(pushSerialReport, 1000);
+}
+function stopSerialLoop() {
+  if (serialInterval) { clearInterval(serialInterval); serialInterval = null; }
+}
+
+/* Shuffle helper for answer options (returns original indices in random order) */
+function shuffledIndices(n) {
+  const a = [...Array(n).keys()];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* ============== MISSION RENDERING ============== */
+function renderMission() {
+  const idx = state.currentMission;
+  const m = missions[idx];
+  if (!m) return;
+
+  // Header
+  document.getElementById('missionNum').textContent = String(idx + 1).padStart(2, '0');
+  document.getElementById('missionTotal').textContent = String(missions.length).padStart(2, '0');
+  document.getElementById('missionTitle').textContent = m.title.toUpperCase();
+  renderProgressSegments();
+  document.getElementById('xpValue').textContent = String(state.xp).padStart(4, '0');
+
+  // Buddy
+  if (m.buddySay) setBuddyBubble(m.buddySay);
+  if (m.buddyState) setBuddyState(m.buddyState);
+
+  // Mission start hook
+  if (m.onStart) m.onStart(state);
+
+  // Toggle simulator strip visibility (+ the Serial Monitor that lives in it)
+  const strip = document.querySelector('.panel-sim-strip');
+  if (strip) {
+    strip.classList.toggle('visible', !!m.showSim);
+    strip.classList.remove('strip-attention');
+  }
+  if (m.showSim) startSerialLoop(); else stopSerialLoop();
+
+  // Refresh firmware viewer
+  updateFirmwareInline();
+
+  // Build body
+  const body = document.getElementById('missionBody');
+  body.innerHTML = '';
+
+  // Story
+  const story = document.createElement('div');
+  story.className = 'mission-story';
+  story.innerHTML = m.story;
+  body.appendChild(story);
+
+  // Prompt (optional)
+  if (m.prompt) {
+    const p = document.createElement('div');
+    p.className = 'mission-prompt';
+    p.innerHTML = m.prompt;
+    body.appendChild(p);
+  }
+
+  // Type-specific rendering
+  if (m.type === 'mcq-group') {
+    // Render each question as its own MCQ block
+    m.questions.forEach((q, qIdx) => {
+      const block = document.createElement('div');
+      block.className = 'mcq-block';
+      block.dataset.q = qIdx;
+
+      const label = document.createElement('div');
+      label.className = 'mcq-label';
+      label.innerHTML = `<span class="mcq-tag">Q${qIdx + 1}</span> <span class="mcq-prompt">${q.prompt}</span>`;
+      block.appendChild(label);
+
+      const opts = document.createElement('div');
+      opts.className = 'options options-row';
+      shuffledIndices(q.options.length).forEach(i => {
+        const btn = document.createElement('button');
+        btn.className = 'option';
+        btn.textContent = q.options[i];
+        btn.dataset.i = i;
+        btn.addEventListener('click', () => {
+          [...opts.children].forEach(c => c.classList.remove('selected'));
+          btn.classList.add('selected');
+        });
+        opts.appendChild(btn);
+      });
+      block.appendChild(opts);
+      body.appendChild(block);
+    });
+  }
+
+  if (m.type === 'manual-test') {
+    // Reset passed state when (re)entering the mission
+    if (!state.completedMissions.has(idx)) state.manualTestPassed = new Set();
+
+    const testArea = document.createElement('div');
+    testArea.className = 'manual-test-list';
+    testArea.id = 'manualTests';
+    m.tests.forEach((t, i) => {
+      const raw = t.raw != null ? t.raw : rawForMoisture(t.moist);
+      const row = document.createElement('div');
+      row.className = 'test-row';
+      row.id = `test-${i}`;
+      row.innerHTML = `
+        <div class="test-num">#${i + 1}</div>
+        <div class="test-info">
+          <div class="test-temp">${t.moist}% <span class="test-and">→</span> ${t.expect}</div>
+          <div class="test-exp">${t.label || ''}</div>
+        </div>
+        <div class="test-status">⏳ WAITING</div>
+        <button class="btn-cyber test-go" data-raw="${raw}">GO →</button>
+      `;
+      testArea.appendChild(row);
+    });
+    body.appendChild(testArea);
+
+    // GO buttons set the soil slider
+    testArea.querySelectorAll('.test-go').forEach(btn => {
+      btn.addEventListener('click', () => {
+        setSoilRaw(parseInt(btn.dataset.raw, 10));
+        sound.click();
+      });
+    });
+
+    // Highlight sim strip to draw attention
+    if (strip) strip.classList.add('strip-attention');
+  }
+
+  // Hint (optional) — revealed on demand
+  if (m.hint) {
+    const hintBtn = document.createElement('button');
+    hintBtn.className = 'hint-btn';
+    hintBtn.style.marginTop = '12px';
+    hintBtn.textContent = '💡 HINT';
+    const hintBox = document.createElement('div');
+    hintBox.className = 'explain-box hidden';
+    hintBox.innerHTML = m.hint;
+    hintBtn.addEventListener('click', () => {
+      hintBox.classList.toggle('hidden');
+      sound.click();
+    });
+    body.appendChild(hintBtn);
+    body.appendChild(hintBox);
+  }
+
+  // Footer buttons
+  document.getElementById('prevBtn').disabled = idx === 0;
+  const nextBtn = document.getElementById('nextBtn');
+  nextBtn.disabled = false;
+  if (state.completedMissions.has(idx)) {
+    nextBtn.textContent = idx === missions.length - 1 ? '★ FINALIZE' : 'NEXT MISSION ▶';
+  } else if (m.type === 'manual-test') {
+    nextBtn.textContent = `▶ TESTS 0/${m.tests.length}`;
+    nextBtn.disabled = true;
+  } else {
+    nextBtn.textContent = '▶ SUBMIT';
+  }
+
+  const fbEl = document.getElementById('feedback');
+  fbEl.textContent = '// awaiting input...';
+  fbEl.className = 'feedback';
+
+  updateSimulation();
+}
+
+/* ============== VALIDATION ============== */
+function validate() {
+  const idx = state.currentMission;
+  const m = missions[idx];
+  if (!m) return;
+
+  // Already completed — just go next
+  if (state.completedMissions.has(idx)) {
+    if (idx === missions.length - 1) {
+      showFinalScreen();
+    } else {
+      goToMission(idx + 1);
+    }
+    return;
+  }
+
+  const body = document.getElementById('missionBody');
+  let ok = false;
+
+  if (m.type === 'mcq-group') {
+    const blocks = body.querySelectorAll('.mcq-block');
+    let allOk = true;
+    let allAnswered = true;
+    blocks.forEach(blk => {
+      if (!blk.querySelector('.option.selected')) allAnswered = false;
+    });
+    if (!allAnswered) {
+      showFeedback('// answer every question first', false);
+      return;
+    }
+    state.attempts += 1;
+    blocks.forEach((blk, qIdx) => {
+      const q = m.questions[qIdx];
+      const sel = blk.querySelector('.option.selected');
+      const picked = parseInt(sel.dataset.i, 10);
+      const correct = (picked === q.correct);
+      if (!correct) allOk = false;
+      blk.querySelectorAll('.option').forEach(b => {
+        const bi = parseInt(b.dataset.i, 10);
+        b.classList.remove('correct', 'wrong');
+        // Only mark the student's own pick, so a wrong try doesn't give away the answer
+        if (bi === picked) b.classList.add(correct ? 'correct' : 'wrong');
+      });
+    });
+    ok = allOk;
+  }
+
+  if (m.type === 'manual-test') {
+    const total = m.tests.length;
+    const passed = state.manualTestPassed.size;
+    if (passed === total) {
+      ok = true;
+    } else {
+      showFeedback(`// pass all ${total} tests first (${passed}/${total})`, false);
+      sound.wrong();
+      return;
+    }
+  }
+
+  if (ok) {
+    if (state.missedMissions.has(idx)) state.bugsFixed += 1;
+    completeMission();
+  } else {
+    state.missedMissions.add(idx);
+    showFeedback(pickRandom(WRONG_MSGS), false);
+    sound.wrong();
+    setBuddyState('confused');
+    setBuddyBubble("Hmm... that doesn't look right.");
+    setTimeout(() => {
+      if (!state.codeState.logicActive) {
+        setBuddyState(m.buddyState || 'waiting');
+        setBuddyBubble(m.buddySay || 'Try again!');
+      }
+    }, 1600);
+  }
+}
+
+/* ============== MANUAL TEST LOGIC ============== */
+function evaluateManualTests() {
+  const m = missions[state.currentMission];
+  if (!m || m.type !== 'manual-test') return;
+  const list = document.getElementById('manualTests');
+  if (!list) return;
+
+  const pct = moistureFromRaw(state.soilRaw);
+
+  m.tests.forEach((t, i) => {
+    const row = document.getElementById(`test-${i}`);
+    if (!row) return;
+    const status = row.querySelector('.test-status');
+
+    // Already passed? Sticky
+    if (state.manualTestPassed.has(i)) {
+      row.classList.add('passed');
+      status.textContent = '✓ PASSED';
+      return;
+    }
+
+    if (pct === t.moist) {
+      state.manualTestPassed.add(i);
+      row.classList.add('passed');
+      row.classList.remove('partial');
+      status.textContent = '✓ PASSED';
+      sound.correct();
+      confetti.burst(15);
+    } else if (Math.abs(pct - t.moist) <= 3) {
+      row.classList.add('partial');
+      status.textContent = `… ${pct < t.moist ? 'wetter' : 'drier'}`;
+    } else {
+      row.classList.remove('passed', 'partial');
+      status.textContent = '⏳ WAITING';
+    }
+  });
+
+  // Update Submit button
+  const total = m.tests.length;
+  const passed = state.manualTestPassed.size;
+  const nextBtn = document.getElementById('nextBtn');
+  if (nextBtn && !state.completedMissions.has(state.currentMission)) {
+    nextBtn.textContent = passed === total ? '🚀 DEPLOY FIRMWARE' : `▶ TESTS ${passed}/${total}`;
+    nextBtn.disabled = passed !== total;
+  }
+}
+
+/* ============== COMPLETION / NAVIGATION ============== */
+function completeMission() {
+  const idx = state.currentMission;
+  const m = missions[idx];
+  if (state.completedMissions.has(idx)) return;
+
+  state.completedMissions.add(idx);
+  state.xp += m.xp || 10;
+
+  showFeedback(pickRandom(CORRECT_MSGS), true);
+  sound.correct();
+  animateXP();
+
+  // Fire mission's onComplete
+  if (m.onComplete) m.onComplete(state);
+
+  // Apply any buddy updates set by onComplete
+  if (state.buddyState) { setBuddyState(state.buddyState); state.buddyState = null; }
+  if (state.buddySay) { setBuddyBubble(state.buddySay); state.buddySay = null; }
+
+  // Unlock firmware lines
+  if (m.unlocks && m.unlocks.length) {
+    m.unlocks.forEach(key => state.unlockedFirmware.add(key));
+    showCodeAdded(m.unlocks);
+    updateFirmwareInline();
+  }
+
+  // Celebrate
+  if (idx === missions.length - 1) {
+    setTimeout(() => {
+      sound.finalWin();
+      confetti.burst(200);
+      setTimeout(() => showFinalScreen(), 1600);
+    }, 600);
+  } else {
+    sound.missionComplete();
+    confetti.burst(40);
+  }
+
+  checkBadges();
+  renderProgressSegments();
+  if (m.type === 'manual-test') updateSimulation();
+
+  // Update next button
+  const nextBtn = document.getElementById('nextBtn');
+  nextBtn.disabled = false;
+  nextBtn.textContent = idx === missions.length - 1 ? '★ FINALIZE' : 'NEXT MISSION ▶';
+}
+
+function goToMission(idx) {
+  if (idx < 0 || idx >= missions.length) return;
+  if (idx > 0 && !state.completedMissions.has(idx - 1)) {
+    showFeedback('Finish the current mission first! 🔒', false);
+    sound.wrong();
+    return;
+  }
+  state.currentMission = idx;
+  renderMission();
+}
+
+function showFeedback(text, isSuccess) {
+  const fb = document.getElementById('feedback');
+  fb.textContent = text;
+  fb.className = `feedback pop ${isSuccess ? 'success' : 'error'}`;
+  setTimeout(() => fb.classList.remove('pop'), 500);
+}
+
+function animateXP() {
+  const chip = document.getElementById('xpValue').parentElement;
+  document.getElementById('xpValue').textContent = String(state.xp).padStart(4, '0');
+  chip.classList.add('pop');
+  setTimeout(() => chip.classList.remove('pop'), 500);
+}
+
+function renderProgressSegments() {
+  const container = document.getElementById('progressSegments');
+  if (!container) return;
+  container.innerHTML = '';
+  container.style.gridTemplateColumns = `repeat(${missions.length}, 1fr)`;
+  for (let i = 0; i < missions.length; i++) {
+    const seg = document.createElement('div');
+    seg.className = 'progress-segment';
+    if (state.completedMissions.has(i)) seg.classList.add('done');
+    else if (i === state.currentMission) seg.classList.add('current');
+    container.appendChild(seg);
+  }
+}
+
+/* ============== FINAL SCREEN ============== */
+function showFinalScreen() {
+  stopSerialLoop();
+  document.getElementById('finalMissions').textContent = `${state.completedMissions.size} / ${missions.length}`;
+  document.getElementById('finalXP').textContent = state.xp;
+  document.getElementById('finalBugs').textContent = state.bugsFixed;
+  document.getElementById('finalAttempts').textContent = state.attempts;
+  const finalBox = document.getElementById('finalDog');
+  renderBuddy(finalBox);
+  paintCircuit(finalBox, 75, false); // happy, well-watered plant
+  const fs = document.getElementById('finalScreen');
+  fs.classList.remove('hidden');
+  sound.finalWin();
+  confetti.burst(300);
+  setTimeout(() => confetti.burst(200), 800);
+  setTimeout(() => confetti.burst(150), 1600);
+}
+
+/* ============== SOIL SLIDER ============== */
+function setSoilRaw(raw) {
+  state.soilRaw = Math.max(0, Math.min(1023, raw));
+  const slider = document.getElementById('soilSlider');
+  if (slider) slider.value = state.soilRaw;
+  updateSimulation();
+}
+
+/* ============== INIT ============== */
+function init() {
+  // Place start-screen circuit + main-app circuit
+  renderBuddy(document.getElementById('startDog'));
+  renderBuddy(document.getElementById('buddyWrap'));
+  setBuddyState('waiting');
+
+  // Full-code preview + watering demo on start screen
+  renderPreviewCode();
+  runLcdDemo();
+
+  // Reset button restarts the demo
+  const resetBtn = document.getElementById('lcdResetBtn');
+  if (resetBtn) resetBtn.addEventListener('click', () => {
+    sound.click();
+    runLcdDemo();
+  });
+
+  // Start button
+  document.getElementById('startBtn').addEventListener('click', () => {
+    sound.init();
+    sound.click();
+    stopLcdDemo();
+    document.getElementById('startScreen').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    renderMission();
+    renderBadges();
+  });
+
+  // Sound toggles
+  const toggleSound = () => {
+    sound.enabled = !sound.enabled;
+    const label = sound.enabled ? '◉ AUDIO:ON' : '◎ AUDIO:OFF';
+    const label2 = sound.enabled ? '◉' : '◎';
+    document.getElementById('startSoundToggle').textContent = label;
+    document.getElementById('soundToggle').textContent = label2;
+    if (sound.enabled) sound.click();
+  };
+  document.getElementById('startSoundToggle').addEventListener('click', toggleSound);
+  document.getElementById('soundToggle').addEventListener('click', toggleSound);
+
+  // Next / Prev
+  document.getElementById('nextBtn').addEventListener('click', validate);
+  document.getElementById('prevBtn').addEventListener('click', () => goToMission(state.currentMission - 1));
+  document.getElementById('badgeClose').addEventListener('click', () => {
+    document.getElementById('badgePopup').classList.add('hidden');
+  });
+
+  // Firmware inline refresh
+  updateFirmwareInline();
+
+  // Theme toggle
+  const themeBtn = document.getElementById('themeToggle');
+  const applyTheme = (theme) => {
+    document.documentElement.setAttribute('data-theme', theme);
+    themeBtn.textContent = theme === 'light' ? '☾' : '☀';
+    try { localStorage.setItem('irrigation-theme', theme); } catch (e) {}
+  };
+  let savedTheme = 'dark';
+  try { savedTheme = localStorage.getItem('irrigation-theme') || 'dark'; } catch (e) {}
+  applyTheme(savedTheme);
+  themeBtn.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+    sound.click();
+  });
+
+  // Soil slider (raw analogRead value) and ±1% step buttons
+  const slider = document.getElementById('soilSlider');
+  if (slider) {
+    slider.addEventListener('input', () => {
+      state.soilRaw = parseInt(slider.value, 10);
+      updateSimulation();
+    });
+    document.getElementById('soilPlus').addEventListener('click', () => {
+      const pct = moistureFromRaw(state.soilRaw);
+      setSoilRaw(pct >= 100 ? 1023 : rawForMoisture(pct + 1));
+    });
+    document.getElementById('soilMinus').addEventListener('click', () => {
+      const pct = moistureFromRaw(state.soilRaw);
+      setSoilRaw(pct <= 0 ? 0 : rawForMoisture(pct - 1));
+    });
+  }
+
+  // Play again
+  document.getElementById('playAgainBtn').addEventListener('click', () => {
+    window.location.reload();
+  });
+
+  // Enter key submits
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      const t = e.target.tagName;
+      if (t === 'INPUT' || t === 'BUTTON') {
+        if (!document.getElementById('app').classList.contains('hidden')) {
+          e.preventDefault();
+          validate();
+        }
+      }
+    }
+  });
+
+  updateSimulation();
+}
+
+/* ============== FIRMWARE VIEWER (INLINE) ============== */
+function buildFirmwareHTML() {
+  const unlocked = state.unlockedFirmware;
+  const lines = FIRMWARE_ORDER.map(key => {
+    const entry = FIRMWARE_LINES[key];
+    if (!entry) return '';
+    const isUnlocked = unlocked.has(key);
+    if (entry.isBlank) {
+      return isUnlocked ? '' : `<span class="fw-blank">&nbsp;</span>`;
+    }
+    if (isUnlocked) {
+      return `<span class="fw-line fw-unlocked">${entry.code}</span>`;
+    }
+    // Locked — show short vague hint, never the real code
+    const hint = entry.hint || 'solve a mission to unlock';
+    return `<span class="fw-locked">// 🔒 ${hint}</span>`;
+  });
+  return lines.join('\n');
+}
+
+function updateFirmwareInline() {
+  const el = document.getElementById('firmwareCode');
+  if (!el) return;
+  el.innerHTML = buildFirmwareHTML();
+  const unlockedCount = [...state.unlockedFirmware].filter(k => !FIRMWARE_LINES[k]?.isBlank).length;
+  const totalCount = FIRMWARE_ORDER.filter(k => !FIRMWARE_LINES[k]?.isBlank).length;
+  const badge = document.getElementById('firmwareProgress');
+  if (badge) badge.textContent = `${unlockedCount}/${totalCount} LINES`;
+}
+
+function showCodeAdded(keys) {
+  const real = keys.filter(k => !FIRMWARE_LINES[k]?.isBlank);
+  if (!real.length) return;
+  const toast = document.createElement('div');
+  toast.className = 'code-toast';
+  toast.innerHTML = `<div class="toast-head">+ ${real.length} LINE${real.length > 1 ? 'S' : ''} ADDED TO FIRMWARE</div>
+    <div class="toast-body">${real.map(k => `<div>${FIRMWARE_LINES[k].code}</div>`).join('')}</div>`;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 400);
+  }, 3200);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+// Debug access (safe to leave for teachers to inspect)
+window.__irrigation = { state, missions, goToMission, completeMission };
+
+</script>
+</body>
+</html>
